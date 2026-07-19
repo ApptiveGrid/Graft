@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSRewritePreview',
+	#name : 'GftRewritePreview',
 	#superclass : 'Object',
 	#instVars : [
 		'reference',
@@ -7,19 +7,19 @@ Class {
 		'newRef',
 		'matches'
 	],
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'instance creation' }
-RSRewritePreview class >> reference: aReference oldRef: anOldRef newRef: aNewRef matches: aMatchesCollection [
+GftRewritePreview class >> reference: aReference oldRef: anOldRef newRef: aNewRef matches: aMatchesCollection [
 	^ self new
 		setReference: aReference oldRef: anOldRef newRef: aNewRef matches: aMatchesCollection;
 		yourself
 ]
 
 { #category : 'printing' }
-RSRewritePreview >> diffText [
+GftRewritePreview >> diffText [
 	| stream |
 	stream := String new writeStream.
 	stream nextPutAll: '--- ', reference ownerProjectName, ' / ', (reference targetProject ifNil: [reference declaredName] ifNotNil: [:t | t name]), ' ---'; cr.
@@ -37,47 +37,47 @@ RSRewritePreview >> diffText [
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> matches [
+GftRewritePreview >> matches [
 	"Association selector -> proposed new method source, one per instance method of the
 	owning BaselineOf class whose source contains the old ref literally."
 	^ matches
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> newRef [
+GftRewritePreview >> newRef [
 	^ newRef
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> newSource [
+GftRewritePreview >> newSource [
 	self status = #ok ifFalse: [ ^ self error: 'Only available when status = #ok (exactly one match); status is ', self status ].
 	^ matches first value
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> oldRef [
+GftRewritePreview >> oldRef [
 	^ oldRef
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> oldSource [
+GftRewritePreview >> oldSource [
 	self status = #ok ifFalse: [ ^ self error: 'Only available when status = #ok (exactly one match); status is ', self status ].
-	^ (RSProject named: reference ownerProjectName) baselineClass sourceCodeAt: self selector
+	^ (GftProject named: reference ownerProjectName) baselineClass sourceCodeAt: self selector
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> reference [
+GftRewritePreview >> reference [
 	^ reference
 ]
 
 { #category : 'accessing' }
-RSRewritePreview >> selector [
+GftRewritePreview >> selector [
 	self status = #ok ifFalse: [ ^ self error: 'Only available when status = #ok (exactly one match); status is ', self status ].
 	^ matches first key
 ]
 
 { #category : 'private' }
-RSRewritePreview >> setReference: aReference oldRef: anOldRef newRef: aNewRef matches: aMatchesCollection [
+GftRewritePreview >> setReference: aReference oldRef: anOldRef newRef: aNewRef matches: aMatchesCollection [
 	reference := aReference.
 	oldRef := anOldRef.
 	newRef := aNewRef.
@@ -85,9 +85,9 @@ RSRewritePreview >> setReference: aReference oldRef: anOldRef newRef: aNewRef ma
 ]
 
 { #category : 'testing' }
-RSRewritePreview >> status [
+GftRewritePreview >> status [
 	"#ok: exactly one method needs editing (the common, expected case).
-	#ambiguous: more than one method mentions the old ref -- Releaser cannot safely guess
+	#ambiguous: more than one method mentions the old ref -- Graft cannot safely guess
 	which is the real declaration site, needs a human to pick.
 	#notFound: no method mentions the old ref as a literal -- likely assembled in a way
 	this simple text-based rewriter cannot locate; needs a manual edit."

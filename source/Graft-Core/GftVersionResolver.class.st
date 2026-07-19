@@ -1,12 +1,12 @@
 Class {
-	#name : 'RSVersionResolver',
+	#name : 'GftVersionResolver',
 	#superclass : 'Object',
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'fetching' }
-RSVersionResolver class >> fetch: aProject [
+GftVersionResolver class >> fetch: aProject [
 	"Explicit, user-triggered network fetch of aProject's remote (read-only --
 	updates the local git object database/remote-tracking branches, does not touch
 	the working copy or any local branch). Answers true on success, false if the
@@ -18,7 +18,7 @@ RSVersionResolver class >> fetch: aProject [
 ]
 
 { #category : 'fetching' }
-RSVersionResolver class >> fetchAll: aCollectionOfProjects [
+GftVersionResolver class >> fetchAll: aCollectionOfProjects [
 	"Fetches every project in the collection, tolerating individual failures.
 	Answers a Dictionary from project name to a Boolean success flag."
 	| results |
@@ -28,12 +28,12 @@ RSVersionResolver class >> fetchAll: aCollectionOfProjects [
 ]
 
 { #category : 'querying' }
-RSVersionResolver class >> latestCommitFor: aProject [
+GftVersionResolver class >> latestCommitFor: aProject [
 	^ self latestCommitFor: aProject ifUnknown: [ nil ]
 ]
 
 { #category : 'querying' }
-RSVersionResolver class >> latestCommitFor: aProject ifUnknown: aBlock [
+GftVersionResolver class >> latestCommitFor: aProject ifUnknown: aBlock [
 	"Reads the current known tip commit id of aProject's tracked remote branch, purely
 	from already-fetched local knowledge -- never triggers a network call itself, see #fetch:.
 	Evaluates aBlock if the repository, remote branch, or commit cannot be resolved.

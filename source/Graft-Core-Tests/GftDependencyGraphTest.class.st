@@ -1,21 +1,21 @@
 Class {
-	#name : 'RSDependencyGraphTest',
+	#name : 'GftDependencyGraphTest',
 	#superclass : 'TestCase',
 	#instVars : [
 		'graph'
 	],
-	#category : 'Releaser-Core-Tests',
-	#package : 'Releaser-Core-Tests'
+	#category : 'Graft-Core-Tests',
+	#package : 'Graft-Core-Tests'
 }
 
 { #category : 'running' }
-RSDependencyGraphTest >> setUp [
+GftDependencyGraphTest >> setUp [
 	super setUp.
-	graph := RSDependencyGraph build
+	graph := GftDependencyGraph build
 ]
 
 { #category : 'tests' }
-RSDependencyGraphTest >> testDependentsOfApptiveCommonIncludesAllThreeConsumers [
+GftDependencyGraphTest >> testDependentsOfApptiveCommonIncludesAllThreeConsumers [
 	| names |
 	names := (graph dependentsOf: 'apptive-common') collect: [ :r | r ownerProjectName ].
 	self assert: (names includes: 'apptive-base').
@@ -24,7 +24,7 @@ RSDependencyGraphTest >> testDependentsOfApptiveCommonIncludesAllThreeConsumers 
 ]
 
 { #category : 'tests' }
-RSDependencyGraphTest >> testDependentsOfSoilIncludesApptiveCommonAsCommitPin [
+GftDependencyGraphTest >> testDependentsOfSoilIncludesApptiveCommonAsCommitPin [
 	| dependents ref |
 	dependents := graph dependentsOf: 'Soil'.
 	ref := dependents detect: [ :r | r ownerProjectName = 'apptive-common' ].
@@ -32,7 +32,7 @@ RSDependencyGraphTest >> testDependentsOfSoilIncludesApptiveCommonAsCommitPin [
 ]
 
 { #category : 'tests' }
-RSDependencyGraphTest >> testDependentsOfSoilIncludesRhizomeAsBranchPin [
+GftDependencyGraphTest >> testDependentsOfSoilIncludesRhizomeAsBranchPin [
 	| dependents ref |
 	dependents := graph dependentsOf: 'Soil'.
 	ref := dependents detect: [ :r | r ownerProjectName = 'Rhizome' ].
@@ -40,7 +40,7 @@ RSDependencyGraphTest >> testDependentsOfSoilIncludesRhizomeAsBranchPin [
 ]
 
 { #category : 'tests' }
-RSDependencyGraphTest >> testEveryReferenceIsEitherExternalOrResolvesToAKnownProject [
+GftDependencyGraphTest >> testEveryReferenceIsEitherExternalOrResolvesToAKnownProject [
 	graph allReferences do: [ :r |
 		r isExternal
 			ifFalse: [ self assert: r targetProject notNil ] ]

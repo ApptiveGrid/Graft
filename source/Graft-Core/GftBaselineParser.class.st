@@ -1,12 +1,12 @@
 Class {
-	#name : 'RSBaselineParser',
+	#name : 'GftBaselineParser',
 	#superclass : 'Object',
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'parsing' }
-RSBaselineParser class >> referencesFor: aProject [
+GftBaselineParser class >> referencesFor: aProject [
 	"Answers an OrderedCollection of RSDependencyReference for every project/baseline
 	dependency declared by aProject's BaselineOf class. Works by asking Metacello to
 	build the (fully evaluated -- concatenations and helper-method indirections like
@@ -27,8 +27,8 @@ RSBaselineParser class >> referencesFor: aProject [
 		select: [ :p | p hasRepository ]
 		thenCollect: [ :p |
 			| repoUrl |
-			repoUrl := RSRepositoryUrl parse: p repositorySpecs first description.
-			RSDependencyReference
+			repoUrl := GftRepositoryUrl parse: p repositorySpecs first description.
+			GftDependencyReference
 				ownerProjectName: aProject name
 				declaredName: p name
 				url: repoUrl ]

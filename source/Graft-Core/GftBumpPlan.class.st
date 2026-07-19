@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSBumpPlan',
+	#name : 'GftBumpPlan',
 	#superclass : 'Object',
 	#instVars : [
 		'triggerProjectName',
@@ -8,18 +8,18 @@ Class {
 		'steps',
 		'floatingDependents'
 	],
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'instance creation' }
-RSBumpPlan class >> for: aProjectName newCommit: aCommitSha usingGraph: aGraph [
+GftBumpPlan class >> for: aProjectName newCommit: aCommitSha usingGraph: aGraph [
 	"Computes the bump cascade triggered by aProjectName getting a new commit aCommitSha.
 	Level 1 (direct commit-pinned dependents of aProjectName) is concrete: we know exactly
 	which BaselineOf reference needs to point at aCommitSha. Level 2+ is necessarily only a
 	preview of the cascade's shape (which projects would need a follow-up bump next) -- their
 	own new commit does not exist yet because nothing gets applied automatically in v1 (Norbert
-	decided 2026-07-19: preview/diff only). Re-run Releaser against the real new commit once a
+	decided 2026-07-19: preview/diff only). Re-run Graft against the real new commit once a
 	level-1 step has actually been applied to compute the next level for real."
 	^ self new
 		setTriggerProjectName: aProjectName newCommit: aCommitSha graph: aGraph;
@@ -28,7 +28,7 @@ RSBumpPlan class >> for: aProjectName newCommit: aCommitSha usingGraph: aGraph [
 ]
 
 { #category : 'building' }
-RSBumpPlan >> build [
+GftBumpPlan >> build [
 	| visited frontierNames levelDepth |
 	visited := Set new.
 	visited add: triggerProjectName.
@@ -36,7 +36,7 @@ RSBumpPlan >> build [
 	(graph dependentsOf: triggerProjectName) do: [ :ref |
 		ref pinKind = #commit
 			ifTrue: [
-				steps add: (RSBumpStep reference: ref newRef: newCommit levelDepth: 1 concrete: true).
+				steps add: (GftBumpStep reference: ref newRef: newCommit levelDepth: 1 concrete: true).
 				frontierNames add: ref ownerProjectName ]
 			ifFalse: [ floatingDependents add: ref ] ].
 	levelDepth := 2.
@@ -49,7 +49,7 @@ RSBumpPlan >> build [
 				(graph dependentsOf: projName) do: [ :ref |
 					ref pinKind = #commit
 						ifTrue: [
-							steps add: (RSBumpStep reference: ref newRef: nil levelDepth: levelDepth concrete: false).
+							steps add: (GftBumpStep reference: ref newRef: nil levelDepth: levelDepth concrete: false).
 							nextFrontier add: ref ownerProjectName ]
 						ifFalse: [ floatingDependents add: ref ] ] ] ].
 		frontierNames := nextFrontier.
@@ -57,12 +57,12 @@ RSBumpPlan >> build [
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> concreteSteps [
+GftBumpPlan >> concreteSteps [
 	^ steps select: [ :s | s isConcrete ]
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> floatingDependents [
+GftBumpPlan >> floatingDependents [
 	"Direct or transitive dependents that reference the cascade via a branch-pinned or
 	unpinned dependency -- these float automatically and need no BaselineOf edit, but are
 	listed for visibility."
@@ -70,28 +70,28 @@ RSBumpPlan >> floatingDependents [
 ]
 
 { #category : 'testing' }
-RSBumpPlan >> isEmpty [
+GftBumpPlan >> isEmpty [
 	^ steps isEmpty and: [ floatingDependents isEmpty ]
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> maxLevelDepth [
+GftBumpPlan >> maxLevelDepth [
 	steps ifEmpty: [ ^ 0 ].
 	^ (steps collect: [ :s | s levelDepth ]) max
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> newCommit [
+GftBumpPlan >> newCommit [
 	^ newCommit
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> pendingSteps [
+GftBumpPlan >> pendingSteps [
 	^ steps reject: [ :s | s isConcrete ]
 ]
 
 { #category : 'private' }
-RSBumpPlan >> setTriggerProjectName: aProjectName newCommit: aCommitSha graph: aGraph [
+GftBumpPlan >> setTriggerProjectName: aProjectName newCommit: aCommitSha graph: aGraph [
 	triggerProjectName := aProjectName.
 	newCommit := aCommitSha.
 	graph := aGraph.
@@ -100,11 +100,11 @@ RSBumpPlan >> setTriggerProjectName: aProjectName newCommit: aCommitSha graph: a
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> steps [
+GftBumpPlan >> steps [
 	^ steps
 ]
 
 { #category : 'accessing' }
-RSBumpPlan >> triggerProjectName [
+GftBumpPlan >> triggerProjectName [
 	^ triggerProjectName
 ]

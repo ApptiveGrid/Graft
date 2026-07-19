@@ -1,18 +1,18 @@
 Class {
-	#name : 'RSReleaserGraphBuilder',
+	#name : 'GftGraphBuilder',
 	#superclass : 'Object',
-	#category : 'Releaser-UI',
-	#package : 'Releaser-UI'
+	#category : 'Graft-UI',
+	#package : 'Graft-UI'
 }
 
 { #category : 'building' }
-RSReleaserGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
-	"Builds a Roassal canvas visualizing aGraph: one box per known project (RSProject),
-	color-coded via RSDependencyGraph>>statusOf:, with one directed edge per reference
+GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
+	"Builds a Roassal canvas visualizing aGraph: one box per known project (GftProject),
+	color-coded via GftDependencyGraph>>statusOf:, with one directed edge per reference
 	between two known projects, styled by pin kind (commit = solid black/orange if stale,
 	branch = dashed gray, none = dotted light gray). External/third-party leaves are not
 	drawn as nodes -- they are only visible via the detail panel for a selected project,
-	see RSReleaserPresenter. aOneArgBlock is evaluated with the clicked RSProject."
+	see GftPresenter. aOneArgBlock is evaluated with the clicked GftProject."
 
 	| canvas boxes knownToKnownRefs edgesByKind |
 	canvas := RSCanvas new.
@@ -51,7 +51,7 @@ RSReleaserGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 			refsOfKind := edgesByKind at: kind ifAbsent: [ #(  ) ].
 			refsOfKind isEmpty ifFalse: [
 					assocs := refsOfKind collect: [ :r |
-						          (RSProject named: r ownerProjectName)
+						          (GftProject named: r ownerProjectName)
 						          -> r targetProject ].
 					builder := RSEdgeBuilder arrowedLine
 						           canvas: canvas;
@@ -66,7 +66,7 @@ RSReleaserGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 ]
 
 { #category : 'colors' }
-RSReleaserGraphBuilder class >> colorFor: aProjectName usingGraph: aGraph [
+GftGraphBuilder class >> colorFor: aProjectName usingGraph: aGraph [
 	(aGraph statusOf: aProjectName) caseOf: {
 		[ #stale ] -> [ ^ Color orange ].
 		[ #upToDate ] -> [ ^ Color veryLightGreen darker ].
@@ -74,7 +74,7 @@ RSReleaserGraphBuilder class >> colorFor: aProjectName usingGraph: aGraph [
 ]
 
 { #category : 'colors' }
-RSReleaserGraphBuilder class >> colorForPinKind: aSymbol [
+GftGraphBuilder class >> colorForPinKind: aSymbol [
 	aSymbol caseOf: {
 		[ #commit ] -> [ ^ Color black ].
 		[ #branch ] -> [ ^ Color gray ].

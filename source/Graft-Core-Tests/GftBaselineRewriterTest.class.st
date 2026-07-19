@@ -1,25 +1,25 @@
 Class {
-	#name : 'RSBaselineRewriterTest',
+	#name : 'GftBaselineRewriterTest',
 	#superclass : 'TestCase',
 	#instVars : [
 		'graph'
 	],
-	#category : 'Releaser-Core-Tests',
-	#package : 'Releaser-Core-Tests'
+	#category : 'Graft-Core-Tests',
+	#package : 'Graft-Core-Tests'
 }
 
 { #category : 'running' }
-RSBaselineRewriterTest >> setUp [
+GftBaselineRewriterTest >> setUp [
 	super setUp.
-	graph := RSDependencyGraph build
+	graph := GftDependencyGraph build
 ]
 
 { #category : 'tests' }
-RSBaselineRewriterTest >> testPreviewForDirectLiteralPinLocatesDeclaringMethod [
+GftBaselineRewriterTest >> testPreviewForDirectLiteralPinLocatesDeclaringMethod [
 	| plan step preview |
-	plan := RSBumpPlan for: 'FluxBase' newCommit: 'cafef00d' usingGraph: graph.
+	plan := GftBumpPlan for: 'FluxBase' newCommit: 'cafef00d' usingGraph: graph.
 	step := plan concreteSteps detect: [ :s | s ownerProjectName = 'apptive-base' ].
-	preview := RSBaselineRewriter previewFor: step.
+	preview := GftBaselineRewriter previewFor: step.
 	self assert: preview status equals: #ok.
 	self assert: preview selector equals: #fluxbase:.
 	self assert: (preview newSource includesSubstring: 'cafef00d').
@@ -27,20 +27,20 @@ RSBaselineRewriterTest >> testPreviewForDirectLiteralPinLocatesDeclaringMethod [
 ]
 
 { #category : 'tests' }
-RSBaselineRewriterTest >> testPreviewForHelperMethodIndirectionLocatesHelperNotDeclaringMethod [
+GftBaselineRewriterTest >> testPreviewForHelperMethodIndirectionLocatesHelperNotDeclaringMethod [
 	| plan step preview |
-	plan := RSBumpPlan for: 'apptive-common' newCommit: 'cafef00d' usingGraph: graph.
+	plan := GftBumpPlan for: 'apptive-common' newCommit: 'cafef00d' usingGraph: graph.
 	step := plan concreteSteps detect: [ :s | s ownerProjectName = 'apptive-base' ].
-	preview := RSBaselineRewriter previewFor: step.
+	preview := GftBaselineRewriter previewFor: step.
 	self assert: preview status equals: #ok.
 	self assert: preview selector equals: #commonCommitHash.
 	self assert: (preview newSource includesSubstring: 'cafef00d')
 ]
 
 { #category : 'tests' }
-RSBaselineRewriterTest >> testPreviewRefusesPendingSteps [
+GftBaselineRewriterTest >> testPreviewRefusesPendingSteps [
 	| plan step |
-	plan := RSBumpPlan for: 'Soil' newCommit: 'cafef00d' usingGraph: graph.
+	plan := GftBumpPlan for: 'Soil' newCommit: 'cafef00d' usingGraph: graph.
 	step := plan pendingSteps first.
-	self should: [ RSBaselineRewriter previewFor: step ] raise: Error
+	self should: [ GftBaselineRewriter previewFor: step ] raise: Error
 ]

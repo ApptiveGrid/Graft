@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSRepositoryUrl',
+	#name : 'GftRepositoryUrl',
 	#superclass : 'Object',
 	#instVars : [
 		'raw',
@@ -9,12 +9,12 @@ Class {
 		'ref',
 		'path'
 	],
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'parsing' }
-RSRepositoryUrl class >> parse: aString [
+GftRepositoryUrl class >> parse: aString [
 	"Parses Metacello repository description strings of the shape
 	<scheme>://<owner>/<repo>[:<ref>]/<path>, e.g.
 	'github://ApptiveGrid/FluxBase:a0b4d1f6.../source' or
@@ -47,7 +47,7 @@ RSRepositoryUrl class >> parse: aString [
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> host [
+GftRepositoryUrl >> host [
 	"Symbolic host for the well-known schemes used in this ecosystem; nil for anything else."
 	scheme = 'github' ifTrue: [ ^ #github ].
 	scheme = 'bitbucket' ifTrue: [ ^ #bitbucket ].
@@ -55,17 +55,17 @@ RSRepositoryUrl >> host [
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> owner [
+GftRepositoryUrl >> owner [
 	^ owner
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> path [
+GftRepositoryUrl >> path [
 	^ path
 ]
 
 { #category : 'testing' }
-RSRepositoryUrl >> pinKind [
+GftRepositoryUrl >> pinKind [
 	"#commit if the ref looks like a full git commit SHA (40 hex chars), #branch if some
 	other ref is pinned (the dependency still floats to whatever that branch points at),
 	#none if there is no ref at all (floats on the remote's default branch)."
@@ -76,32 +76,32 @@ RSRepositoryUrl >> pinKind [
 ]
 
 { #category : 'printing' }
-RSRepositoryUrl >> printOn: aStream [
+GftRepositoryUrl >> printOn: aStream [
 	aStream nextPutAll: 'RSRepositoryUrl(', raw, ')'
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> raw [
+GftRepositoryUrl >> raw [
 	^ raw
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> ref [
+GftRepositoryUrl >> ref [
 	^ ref
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> repoName [
+GftRepositoryUrl >> repoName [
 	^ repoName
 ]
 
 { #category : 'accessing' }
-RSRepositoryUrl >> scheme [
+GftRepositoryUrl >> scheme [
 	^ scheme
 ]
 
 { #category : 'private' }
-RSRepositoryUrl >> setRaw: aRaw scheme: aScheme owner: anOwner repoName: aRepo ref: aRef path: aPath [
+GftRepositoryUrl >> setRaw: aRaw scheme: aScheme owner: anOwner repoName: aRepo ref: aRef path: aPath [
 	raw := aRaw.
 	scheme := aScheme.
 	owner := anOwner.

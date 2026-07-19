@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSReleaserPresenter',
+	#name : 'GftPresenter',
 	#superclass : 'SpPresenter',
 	#instVars : [
 		'graph',
@@ -11,28 +11,28 @@ Class {
 		'refreshButton',
 		'bumpButton'
 	],
-	#category : 'Releaser-UI',
-	#package : 'Releaser-UI'
+	#category : 'Graft-UI',
+	#package : 'Graft-UI'
 }
 
 { #category : 'accessing' }
-RSReleaserPresenter class >> defaultPreferredExtent [
+GftPresenter class >> defaultPreferredExtent [
 	^ 1150@780
 ]
 
 { #category : 'instance creation' }
-RSReleaserPresenter class >> open [
+GftPresenter class >> open [
 	^ self new open
 ]
 
 { #category : 'initialization' }
-RSReleaserPresenter >> connectPresenters [
+GftPresenter >> connectPresenters [
 	refreshButton action: [ self refreshAll ].
 	bumpButton action: [ self showBumpPlanForSelectedProject ]
 ]
 
 { #category : 'layout' }
-RSReleaserPresenter >> defaultLayout [
+GftPresenter >> defaultLayout [
 	| top middle |
 	top := SpBoxLayout newLeftToRight
 		add: refreshButton expand: false;
@@ -51,10 +51,10 @@ RSReleaserPresenter >> defaultLayout [
 ]
 
 { #category : 'initialization' }
-RSReleaserPresenter >> initializePresenters [
-	graph := RSDependencyGraph build.
+GftPresenter >> initializePresenters [
+	graph := GftDependencyGraph build.
 	roassal := self newRoassal.
-	roassal canvas: (RSReleaserGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	selectedLabel := self newLabel.
 	selectedLabel label: 'Projekt anklicken...'.
 	detailTable := self newTable.
@@ -76,27 +76,27 @@ RSReleaserPresenter >> initializePresenters [
 ]
 
 { #category : 'actions' }
-RSReleaserPresenter >> refreshAll [
-	RSVersionResolver fetchAll: RSProject knownProjects.
-	graph := RSDependencyGraph build.
-	roassal canvas: (RSReleaserGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+GftPresenter >> refreshAll [
+	GftVersionResolver fetchAll: GftProject knownProjects.
+	graph := GftDependencyGraph build.
+	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	selectedProject ifNotNil: [ self showProject: selectedProject ]
 ]
 
 { #category : 'actions' }
-RSReleaserPresenter >> showBumpPlanForSelectedProject [
+GftPresenter >> showBumpPlanForSelectedProject [
 	| newCommit plan stream |
 	selectedProject ifNil: [ ^ self inform: 'Bitte zuerst ein Projekt im Graph anklicken.' ].
-	newCommit := RSVersionResolver latestCommitFor: selectedProject ifUnknown: [ nil ].
+	newCommit := GftVersionResolver latestCommitFor: selectedProject ifUnknown: [ nil ].
 	newCommit ifNil: [ ^ self inform: 'Kein bekannter aktueller Commit fuer ', selectedProject name, ' -- erst Refresh druecken.' ].
-	plan := RSBumpPlan for: selectedProject name newCommit: newCommit usingGraph: graph.
+	plan := GftBumpPlan for: selectedProject name newCommit: newCommit usingGraph: graph.
 	stream := String new writeStream.
 	plan isEmpty
 		ifTrue: [ stream nextPutAll: 'Keine BaselineOf muesste angepasst werden -- niemand referenziert ', selectedProject name, ' commit-gepinnt.' ]
 		ifFalse: [
 			stream nextPutAll: 'Bump-Plan fuer ', selectedProject name, ' -> ', newCommit; cr; cr.
 			plan concreteSteps do: [ :step |
-				stream nextPutAll: (RSBaselineRewriter previewFor: step) diffText; cr; cr ].
+				stream nextPutAll: (GftBaselineRewriter previewFor: step) diffText; cr; cr ].
 			plan pendingSteps isEmpty ifFalse: [
 				stream nextPutAll: '--- weitere Kaskade (erst nach Anwendung der obigen Schritte konkret berechenbar) ---'; cr.
 				plan pendingSteps do: [ :step | stream nextPutAll: step printString; cr ] ].
@@ -107,13 +107,13 @@ RSReleaserPresenter >> showBumpPlanForSelectedProject [
 ]
 
 { #category : 'actions' }
-RSReleaserPresenter >> showProject: aProject [
+GftPresenter >> showProject: aProject [
 	selectedProject := aProject.
 	selectedLabel label: aProject name.
 	detailTable items: (graph referencesFrom: aProject name) asOrderedCollection
 ]
 
 { #category : 'accessing' }
-RSReleaserPresenter >> windowTitle [
-	^ 'Releaser -- Metacello Dependency Graph'
+GftPresenter >> windowTitle [
+	^ 'Graft -- Metacello Dependency Graph'
 ]

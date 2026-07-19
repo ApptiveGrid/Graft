@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSBumpStep',
+	#name : 'GftBumpStep',
 	#superclass : 'Object',
 	#instVars : [
 		'reference',
@@ -7,19 +7,19 @@ Class {
 		'levelDepth',
 		'concrete'
 	],
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'instance creation' }
-RSBumpStep class >> reference: aReference newRef: aNewRefOrNil levelDepth: aLevel concrete: aBoolean [
+GftBumpStep class >> reference: aReference newRef: aNewRefOrNil levelDepth: aLevel concrete: aBoolean [
 	^ self new
 		setReference: aReference newRef: aNewRefOrNil levelDepth: aLevel concrete: aBoolean;
 		yourself
 ]
 
 { #category : 'testing' }
-RSBumpStep >> isConcrete [
+GftBumpStep >> isConcrete [
 	"True for level-1 steps, where the new ref is a real, already-known commit sha.
 	False for level 2+ (see RSBumpPlan class comment): those depend on a commit that would
 	only be created once this step is actually applied, so they cannot be computed for real
@@ -28,22 +28,22 @@ RSBumpStep >> isConcrete [
 ]
 
 { #category : 'accessing' }
-RSBumpStep >> levelDepth [
+GftBumpStep >> levelDepth [
 	^ levelDepth
 ]
 
 { #category : 'accessing' }
-RSBumpStep >> newRef [
+GftBumpStep >> newRef [
 	^ newRef
 ]
 
 { #category : 'accessing' }
-RSBumpStep >> ownerProjectName [
+GftBumpStep >> ownerProjectName [
 	^ reference ownerProjectName
 ]
 
 { #category : 'printing' }
-RSBumpStep >> printOn: aStream [
+GftBumpStep >> printOn: aStream [
 	aStream
 		nextPutAll: 'RSBumpStep(L';
 		print: levelDepth;
@@ -57,12 +57,12 @@ RSBumpStep >> printOn: aStream [
 ]
 
 { #category : 'accessing' }
-RSBumpStep >> reference [
+GftBumpStep >> reference [
 	^ reference
 ]
 
 { #category : 'private' }
-RSBumpStep >> setReference: aReference newRef: aNewRefOrNil levelDepth: aLevel concrete: aBoolean [
+GftBumpStep >> setReference: aReference newRef: aNewRefOrNil levelDepth: aLevel concrete: aBoolean [
 	reference := aReference.
 	newRef := aNewRefOrNil.
 	levelDepth := aLevel.

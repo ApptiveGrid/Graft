@@ -1,5 +1,5 @@
 Class {
-	#name : 'RSProject',
+	#name : 'GftProject',
 	#superclass : 'Object',
 	#instVars : [
 		'name',
@@ -11,17 +11,17 @@ Class {
 	#classVars : [
 		'KnownProjects'
 	],
-	#category : 'Releaser-Core',
-	#package : 'Releaser-Core'
+	#category : 'Graft-Core',
+	#package : 'Graft-Core'
 }
 
 { #category : 'known projects' }
-RSProject class >> buildKnownProjects [
+GftProject class >> buildKnownProjects [
 	"ApptiveGrid-owned projects only (v1 scope, decided with Norbert 2026-07-19) -- third-party
 	dependencies (NeoCSV, Zinc, Mustache, ...) are deliberately not tracked as bump targets here,
 	they only ever appear as external leaves in the dependency graph. Owner/host verified against
 	the actual git remotes registered in Iceberg; trackedRef is the conventional release branch per
-	project (verified via Iceberg remote branches where possible, see Releaser doc)."
+	project (verified via Iceberg remote branches where possible, see Graft doc)."
 	^ {
 		self name: 'apptive-base' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveBase' trackedRef: 'development'.
 		self name: 'apptive-account' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveAccount' trackedRef: 'master'.
@@ -40,30 +40,30 @@ RSProject class >> buildKnownProjects [
 ]
 
 { #category : 'known projects' }
-RSProject class >> knownProjects [
-	"Cached registry of all ApptiveGrid-owned projects Releaser v1 manages. See #buildKnownProjects."
+GftProject class >> knownProjects [
+	"Cached registry of all ApptiveGrid-owned projects Graft v1 manages. See #buildKnownProjects."
 	^ KnownProjects ifNil: [ KnownProjects := self buildKnownProjects ]
 ]
 
 { #category : 'instance creation' }
-RSProject class >> name: aName host: aHostSymbol owner: anOwner baselineClassName: aClassName trackedRef: aRef [
+GftProject class >> name: aName host: aHostSymbol owner: anOwner baselineClassName: aClassName trackedRef: aRef [
 	^ self new
 		setName: aName host: aHostSymbol owner: anOwner baselineClassName: aClassName trackedRef: aRef;
 		yourself
 ]
 
 { #category : 'known projects' }
-RSProject class >> named: aName [
+GftProject class >> named: aName [
 	^ self named: aName ifAbsent: [ nil ]
 ]
 
 { #category : 'known projects' }
-RSProject class >> named: aName ifAbsent: aBlock [
+GftProject class >> named: aName ifAbsent: aBlock [
 	^ self knownProjects detect: [ :p | p name = aName ] ifNone: aBlock
 ]
 
 { #category : 'known projects' }
-RSProject class >> projectForOwner: anOwner repo: aRepoName [
+GftProject class >> projectForOwner: anOwner repo: aRepoName [
 	"Resolves an owner+repo pair (as parsed from a repository: URL) back to a known project,
 	or nil if it points outside the tracked ApptiveGrid-owned scope (a third-party leaf)."
 	^ self knownProjects
@@ -72,60 +72,60 @@ RSProject class >> projectForOwner: anOwner repo: aRepoName [
 ]
 
 { #category : 'known projects' }
-RSProject class >> resetKnownProjects [
+GftProject class >> resetKnownProjects [
 	"Testing/dev hook: force a rebuild of the known-projects registry."
 	KnownProjects := nil
 ]
 
 { #category : 'comparing' }
-RSProject >> = anObject [
-	^ (anObject isKindOf: RSProject) and: [ name = anObject name ]
+GftProject >> = anObject [
+	^ (anObject isKindOf: GftProject) and: [ name = anObject name ]
 ]
 
 { #category : 'accessing' }
-RSProject >> baselineClass [
+GftProject >> baselineClass [
 	"Resolves the loaded BaselineOf class for this project, or nil if not currently loaded in the image."
 	^ Smalltalk at: baselineClassName asSymbol ifAbsent: [ nil ]
 ]
 
 { #category : 'accessing' }
-RSProject >> baselineClassName [
+GftProject >> baselineClassName [
 	^ baselineClassName
 ]
 
 { #category : 'comparing' }
-RSProject >> hash [
+GftProject >> hash [
 	^ name hash
 ]
 
 { #category : 'accessing' }
-RSProject >> host [
+GftProject >> host [
 	^ host
 ]
 
 { #category : 'accessing' }
-RSProject >> iceRepository [
+GftProject >> iceRepository [
 	"Resolves the Iceberg repository registered for this project, or nil if not registered/checked out."
 	^ IceRepository registry detect: [ :r | r name = name ] ifNone: [ nil ]
 ]
 
 { #category : 'accessing' }
-RSProject >> name [
+GftProject >> name [
 	^ name
 ]
 
 { #category : 'accessing' }
-RSProject >> owner [
+GftProject >> owner [
 	^ owner
 ]
 
 { #category : 'printing' }
-RSProject >> printOn: aStream [
+GftProject >> printOn: aStream [
 	aStream nextPutAll: 'RSProject(', name, ')'
 ]
 
 { #category : 'private' }
-RSProject >> setName: aName host: aHostSymbol owner: anOwner baselineClassName: aClassName trackedRef: aRef [
+GftProject >> setName: aName host: aHostSymbol owner: anOwner baselineClassName: aClassName trackedRef: aRef [
 	name := aName.
 	host := aHostSymbol.
 	owner := anOwner.
@@ -134,6 +134,6 @@ RSProject >> setName: aName host: aHostSymbol owner: anOwner baselineClassName: 
 ]
 
 { #category : 'accessing' }
-RSProject >> trackedRef [
+GftProject >> trackedRef [
 	^ trackedRef
 ]
