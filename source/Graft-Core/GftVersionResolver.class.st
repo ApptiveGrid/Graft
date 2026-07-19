@@ -5,6 +5,21 @@ Class {
 	#package : 'Graft-Core'
 }
 
+{ #category : 'querying' }
+GftVersionResolver class >> effectiveTipFor: aProject [
+	"Like #latestCommitFor:ifUnknown:, but prefers the local trackedRef branch tip when the
+	repository is currently checked out on it -- this reflects commits Graft itself may have just
+	made (possibly not pushed yet). Falls back to the remote-tracked tip if the repository is on
+	some other branch (a WIP feature branch, say) or detached, since the local HEAD isn't
+	trustworthy as 'the tip of trackedRef' in that case."
+	| repo |
+	repo := aProject iceRepository.
+	repo ifNil: [ ^ nil ].
+	(repo head isBranch and: [ repo branchName = aProject trackedRef ])
+		ifTrue: [ ^ repo headCommit id ].
+	^ self latestCommitFor: aProject ifUnknown: [ nil ]
+]
+
 { #category : 'fetching' }
 GftVersionResolver class >> fetch: aProject [
 	"Explicit, user-triggered network fetch of aProject's remote (read-only --

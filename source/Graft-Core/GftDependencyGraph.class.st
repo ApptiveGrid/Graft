@@ -41,6 +41,11 @@ GftDependencyGraph >> externalReferences [
 	^ self allReferences select: [ :r | r isExternal ]
 ]
 
+{ #category : 'testing' }
+GftDependencyGraph >> hasStaleDependents: aProjectName [
+	^ (self staleDependentsOf: aProjectName) isNotEmpty
+]
+
 { #category : 'accessing' }
 GftDependencyGraph >> projects [
 	^ GftProject knownProjects
@@ -50,6 +55,19 @@ GftDependencyGraph >> projects [
 GftDependencyGraph >> referencesFrom: aProjectName [
 	"All outgoing dependency references declared by the project named aProjectName."
 	^ referencesByOwner at: aProjectName ifAbsent: [ #() ]
+]
+
+{ #category : 'accessing' }
+GftDependencyGraph >> staleDependentsOf: aProjectName [
+	"Commit-pinned dependents of aProjectName whose pin is behind aProjectName's current tip --
+	i.e. the projects that would need a BaselineOf edit if aProjectName just got a new commit."
+	^ (self dependentsOf: aProjectName) select: [ :r | r isStale ]
+]
+
+{ #category : 'accessing' }
+GftDependencyGraph >> staleOutgoingReferencesOf: aProjectName [
+	"aProjectName's own outgoing references that are behind -- what Update would fix for this project."
+	^ (self referencesFrom: aProjectName) select: [ :r | r isStale ]
 ]
 
 { #category : 'accessing' }

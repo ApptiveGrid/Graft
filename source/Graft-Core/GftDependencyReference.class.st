@@ -32,12 +32,14 @@ GftDependencyReference >> isExternal [
 { #category : 'testing' }
 GftDependencyReference >> isStale [
 	"True if this is a commit-pinned reference whose pinned commit is behind the
-	target project's current tracked-ref tip. Answers false for non-commit pins and
-	for references Graft cannot resolve a live tip for (see GftVersionResolver)."
+	target project's effective tip (local trackedRef branch if checked out there, else the
+	remote-tracked tip -- see GftVersionResolver>>effectiveTipFor:). Answers false for
+	non-commit pins and for references Graft cannot resolve a live tip for."
 	| target latest |
 	self pinKind = #commit ifFalse: [ ^ false ].
 	target := self targetProject ifNil: [ ^ false ].
-	latest := GftVersionResolver latestCommitFor: target ifUnknown: [ ^ false ].
+	latest := GftVersionResolver effectiveTipFor: target.
+	latest ifNil: [ ^ false ].
 	^ latest ~= url ref
 ]
 
