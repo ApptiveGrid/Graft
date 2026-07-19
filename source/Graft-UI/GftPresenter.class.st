@@ -4,15 +4,18 @@ Class {
 	#instVars : [
 		'graph',
 		'selectedProject',
+		'actionTargetNames',
+		'viewProjectNames',
 		'roassal',
+		'projectSidebar',
 		'detailTable',
 		'dependentsTable',
 		'selectedLabel',
 		'planText',
 		'refreshButton',
 		'bumpButton',
-		'updateProjectButton',
-		'updateAllButton'
+		'updateButton',
+		'commitCheckbox'
 	],
 	#category : 'Graft-UI',
 	#package : 'Graft-UI'
@@ -28,31 +31,69 @@ GftPresenter class >> open [
 	^ self new open
 ]
 
+{ #category : 'actions' }
+GftPresenter >> applyCustomSelection: chosenNames [
+	chosenNames isEmpty ifTrue: [ ^ self inform: 'Keine Projekte ausgewählt.' ].
+	viewProjectNames := chosenNames.
+	actionTargetNames := chosenNames.
+	selectedProject := nil.
+	selectedLabel label: 'Custom (', chosenNames size printString, ' Projekte)'.
+	detailTable items: #().
+	dependentsTable items: #().
+	roassal canvas: (GftGraphBuilder
+		canvasFor: graph
+		projects: (chosenNames collect: [ :n | GftProject named: n ])
+		onSelect: [ :proj | self showProject: proj ])
+]
+
+{ #category : 'actions' }
+GftPresenter >> buildPreviewTextFor: names [
+	| stream any |
+	stream := String new writeStream.
+	any := false.
+	names do: [ :name |
+		(graph staleOutgoingReferencesOf: name) do: [ :ref |
+			| newRef |
+			newRef := GftVersionResolver effectiveTipFor: ref targetProject.
+			newRef ifNotNil: [
+				any := true.
+				stream nextPutAll: (GftBaselineRewriter previewForReference: ref newRef: newRef) diffText; cr; cr ] ] ].
+	^ any ifTrue: [ stream contents ] ifFalse: [ '' ]
+]
+
 { #category : 'initialization' }
 GftPresenter >> connectPresenters [
+	projectSidebar whenSelectedItemChangedDo: [ :item | self sidebarSelected: item ].
 	refreshButton action: [ self refreshAll ].
 	bumpButton action: [ self showBumpPlanForSelectedProject ].
-	updateProjectButton action: [ self updateSelectedProject ].
-	updateAllButton action: [ self updateAllProjects ]
+	updateButton action: [ self performUpdate ]
 ]
 
 { #category : 'layout' }
 GftPresenter >> defaultLayout [
-	| top middle rightSide |
+	| top middle rightSide sidebarBox actionsBox |
+	sidebarBox := SpBoxLayout newTopToBottom
+		add: 'Projekte' expand: false;
+		add: projectSidebar expand: true;
+		yourself.
 	top := SpBoxLayout newLeftToRight
 		add: refreshButton expand: false;
 		add: selectedLabel expand: true;
 		add: bumpButton expand: false;
-		add: updateProjectButton expand: false;
-		add: updateAllButton expand: false;
+		yourself.
+	actionsBox := SpBoxLayout newLeftToRight
+		add: commitCheckbox expand: false;
+		add: updateButton expand: false;
 		yourself.
 	rightSide := SpBoxLayout newTopToBottom
 		add: 'Abhängigkeiten dieses Projekts' expand: false;
 		add: detailTable expand: true;
 		add: 'Abhängige Projekte (wer zeigt hierauf)' expand: false;
 		add: dependentsTable expand: true;
+		add: actionsBox expand: false;
 		yourself.
 	middle := SpBoxLayout newLeftToRight
+		add: sidebarBox width: 180;
 		add: roassal expand: true;
 		add: rightSide expand: true;
 		yourself.
@@ -66,10 +107,22 @@ GftPresenter >> defaultLayout [
 { #category : 'initialization' }
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
+	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
+	actionTargetNames := viewProjectNames.
 	roassal := self newRoassal.
 	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	projectSidebar := self newList.
+	projectSidebar items: ((OrderedCollection new)
+		add: #all;
+		add: #custom;
+		addAll: (GftProject knownProjects asSortedCollection: [ :a :b | a name <= b name ]);
+		yourself).
+	projectSidebar display: [ :item |
+		item == #all
+			ifTrue: [ '◆ Alle' ]
+			ifFalse: [ item == #custom ifTrue: [ '◆ Custom...' ] ifFalse: [ '   ', item name ] ] ].
 	selectedLabel := self newLabel.
-	selectedLabel label: 'Projekt anklicken...'.
+	selectedLabel label: 'Alle Projekte'.
 	detailTable := self newTable.
 	detailTable
 		addColumn: (SpStringTableColumn title: 'Abhängigkeit von' evaluated: [ :r | r declaredName ]);
@@ -93,18 +146,58 @@ GftPresenter >> initializePresenters [
 	refreshButton label: 'Refresh (fetch)'.
 	bumpButton := self newButton.
 	bumpButton label: 'Bump-Plan berechnen'.
-	updateProjectButton := self newButton.
-	updateProjectButton label: 'Projekt aktualisieren'.
-	updateAllButton := self newButton.
-	updateAllButton label: 'Alle aktualisieren'.
+	commitCheckbox := self newCheckBox.
+	commitCheckbox label: 'Committen (statt nur Code ändern)'.
+	commitCheckbox state: false.
+	updateButton := self newButton.
+	updateButton label: 'Aktualisieren'.
 	planText := self newText.
 	planText beNotEditable
 ]
 
 { #category : 'actions' }
+GftPresenter >> openCustomPicker [
+	| picker |
+	picker := GftProjectPickerPresenter new.
+	picker initiallySelected: actionTargetNames.
+	picker onApply: [ :chosenNames | self applyCustomSelection: chosenNames ].
+	picker open
+]
+
+{ #category : 'actions' }
+GftPresenter >> performUpdate [
+	"Applies to whatever is currently the action target: a single project (sidebar row or
+	graph-node click), 'Alle', or a 'Custom' subset -- see #showProject:/#selectAllView/
+	#applyCustomSelection:. commitCheckbox controls whether this only rewrites the BaselineOf
+	method(s) in the live image (left uncommitted, for the user to review/commit themselves)
+	or also commits locally in one go per project -- see GftUpdater. Never pushes."
+	| commit preview results summary |
+	actionTargetNames ifNil: [ ^ self inform: 'Bitte zuerst links ein Projekt oder eine Auswahl wählen.' ].
+	commit := commitCheckbox state.
+	preview := self buildPreviewTextFor: actionTargetNames.
+	preview isEmpty ifTrue: [ ^ self inform: 'Keine veralteten Pins in der aktuellen Auswahl.' ].
+	planText text: preview.
+	(self confirm: (commit
+		ifTrue: [ 'Änderungen jetzt anwenden UND lokal committen (kein Push)?' ]
+		ifFalse: [ 'Nur den Code jetzt ändern, NICHT committen?' ]))
+		ifFalse: [ ^ self ].
+	results := GftUpdater updateProjects: actionTargetNames commit: commit.
+	results isEmpty ifTrue: [ ^ self inform: 'Nichts zu tun.' ].
+	summary := String new writeStream.
+	results do: [ :r | summary nextPutAll: r summary; cr; cr ].
+	planText text: summary contents.
+	self rebuildGraphView
+]
+
+{ #category : 'actions' }
 GftPresenter >> rebuildGraphView [
 	graph := GftDependencyGraph build.
-	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	roassal canvas: (viewProjectNames size = GftProject knownProjects size
+		ifTrue: [ GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ] ]
+		ifFalse: [ GftGraphBuilder
+			canvasFor: graph
+			projects: (viewProjectNames collect: [ :n | GftProject named: n ])
+			onSelect: [ :proj | self showProject: proj ] ]).
 	selectedProject ifNotNil: [ self showProject: selectedProject ]
 ]
 
@@ -115,78 +208,59 @@ GftPresenter >> refreshAll [
 ]
 
 { #category : 'actions' }
+GftPresenter >> selectAllView [
+	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
+	actionTargetNames := viewProjectNames.
+	selectedProject := nil.
+	selectedLabel label: 'Alle Projekte'.
+	detailTable items: #().
+	dependentsTable items: #().
+	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ])
+]
+
+{ #category : 'actions' }
 GftPresenter >> showBumpPlanForSelectedProject [
 	| newCommit plan stream |
-	selectedProject ifNil: [ ^ self inform: 'Bitte zuerst ein Projekt im Graph anklicken.' ].
+	selectedProject ifNil: [ ^ self inform: 'Bitte zuerst ein Projekt anklicken (Graph oder Sidebar).' ].
 	newCommit := GftVersionResolver latestCommitFor: selectedProject ifUnknown: [ nil ].
-	newCommit ifNil: [ ^ self inform: 'Kein bekannter aktueller Commit fuer ', selectedProject name, ' -- erst Refresh druecken.' ].
+	newCommit ifNil: [ ^ self inform: 'Kein bekannter aktueller Commit für ', selectedProject name, ' -- erst Refresh drücken.' ].
 	plan := GftBumpPlan for: selectedProject name newCommit: newCommit usingGraph: graph.
 	stream := String new writeStream.
 	plan isEmpty
-		ifTrue: [ stream nextPutAll: 'Keine BaselineOf muesste angepasst werden -- niemand referenziert ', selectedProject name, ' commit-gepinnt.' ]
+		ifTrue: [ stream nextPutAll: 'Keine BaselineOf müsste angepasst werden -- niemand referenziert ', selectedProject name, ' commit-gepinnt.' ]
 		ifFalse: [
-			stream nextPutAll: 'Bump-Plan fuer ', selectedProject name, ' -> ', newCommit; cr; cr.
+			stream nextPutAll: 'Bump-Plan für ', selectedProject name, ' -> ', newCommit; cr; cr.
 			plan concreteSteps do: [ :step |
 				stream nextPutAll: (GftBaselineRewriter previewFor: step) diffText; cr; cr ].
 			plan pendingSteps isEmpty ifFalse: [
 				stream nextPutAll: '--- weitere Kaskade (erst nach Anwendung der obigen Schritte konkret berechenbar) ---'; cr.
 				plan pendingSteps do: [ :step | stream nextPutAll: step printString; cr ] ].
 			plan floatingDependents isEmpty ifFalse: [
-				stream nextPutAll: '--- floatet automatisch, keine Aenderung noetig ---'; cr.
+				stream nextPutAll: '--- floatet automatisch, keine Änderung nötig ---'; cr.
 				plan floatingDependents do: [ :ref | stream nextPutAll: ref printString; cr ] ] ].
 	planText text: stream contents
 ]
 
 { #category : 'actions' }
 GftPresenter >> showProject: aProject [
+	"Populates the detail/dependents tables and makes aProject the single target for the
+	Update button -- used both by clicking a node in the graph and by clicking an individual
+	project row in the sidebar. Deliberately does not touch the sidebar selection or which
+	projects are currently drawn in the graph (see #selectAllView/#applyCustomSelection: for
+	that), so inspecting one project does not lose a Custom view."
 	selectedProject := aProject.
+	actionTargetNames := { aProject name }.
 	selectedLabel label: aProject name.
 	detailTable items: (graph referencesFrom: aProject name) asOrderedCollection.
 	dependentsTable items: (graph dependentsOf: aProject name) asOrderedCollection
 ]
 
 { #category : 'actions' }
-GftPresenter >> updateAllProjects [
-	"Runs the full cascade: repeatedly updates every currently-safe, currently-stale project
-	(each in its own local commit, never pushed) until nothing more changes -- see GftUpdater
-	class>>updateAll. Asks for confirmation first, showing which projects currently have
-	fixable stale pins."
-	| staleProjectNames results summary |
-	staleProjectNames := graph projects
-		select: [ :p | (graph staleOutgoingReferencesOf: p name) isNotEmpty ]
-		thenCollect: [ :p | p name ].
-	staleProjectNames isEmpty ifTrue: [ ^ self inform: 'Nichts zu tun -- keine veralteten Pins gefunden.' ].
-	(self confirm: 'Kaskade jetzt anwenden für: ', (staleProjectNames fold: [ :a :b | a, ', ', b ]), '? (mehrere lokale Commits möglich, kein Push)')
-		ifFalse: [ ^ self ].
-	results := GftUpdater updateAll.
-	summary := String new writeStream.
-	results do: [ :r | summary nextPutAll: r summary; cr; cr ].
-	planText text: summary contents.
-	self rebuildGraphView
-]
-
-{ #category : 'actions' }
-GftPresenter >> updateSelectedProject [
-	"Fixes every currently-stale outgoing pin of the selected project in one local commit
-	(never pushes) -- see GftUpdater class>>updateProject:usingGraph:. Shows a preview and
-	asks for confirmation first."
-	| staleRefs previewText result |
-	selectedProject ifNil: [ ^ self inform: 'Bitte zuerst ein Projekt im Graph anklicken.' ].
-	staleRefs := graph staleOutgoingReferencesOf: selectedProject name.
-	staleRefs isEmpty ifTrue: [ ^ self inform: selectedProject name, ' hat keine veralteten Pins.' ].
-	previewText := String new writeStream.
-	staleRefs do: [ :ref |
-		| newRef |
-		newRef := GftVersionResolver effectiveTipFor: ref targetProject.
-		previewText
-			nextPutAll: (GftBaselineRewriter previewForReference: ref newRef: newRef) diffText;
-			cr; cr ].
-	planText text: previewText contents.
-	(self confirm: 'Diese Änderung(en) an ', selectedProject name, ' jetzt lokal committen (kein Push)?')
-		ifFalse: [ ^ self ].
-	result := GftUpdater updateProject: selectedProject usingGraph: graph.
-	planText text: result summary.
-	self rebuildGraphView
+GftPresenter >> sidebarSelected: item [
+	item ifNil: [ ^ self ].
+	item == #all ifTrue: [ ^ self selectAllView ].
+	item == #custom ifTrue: [ ^ self openCustomPicker ].
+	self showProject: item
 ]
 
 { #category : 'accessing' }

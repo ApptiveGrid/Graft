@@ -28,6 +28,30 @@ GftUpdaterTest >> testBlockersFlagModifiedRepo [
 ]
 
 { #category : 'tests' }
+GftUpdaterTest >> testSummaryDistinguishesChangedFromCommitted [
+	| committedResult changedOnlyResult |
+	committedResult := GftUpdateResult projectName: 'x' blockers: #() applied: { 'Y' -> 'abc' } skipped: #() commitId: 'deadbeef'.
+	self assert: committedResult wasCommitted.
+	self assert: (committedResult summary includesSubstring: 'committet').
+	changedOnlyResult := GftUpdateResult projectName: 'x' blockers: #() applied: { 'Y' -> 'abc' } skipped: #() commitId: nil.
+	self deny: changedOnlyResult wasCommitted.
+	self assert: changedOnlyResult wasChangedButNotCommitted.
+	self assert: (changedOnlyResult summary includesSubstring: 'NICHT committet')
+]
+
+{ #category : 'tests' }
+GftUpdaterTest >> testUpdateProjectCommitFalseNeverTouchesABlockedProject [
+	GftProject knownProjects do: [ :p |
+		| blockers result |
+		blockers := GftUpdater blockersForUpdating: p.
+		blockers isEmpty ifFalse: [
+			result := GftUpdater updateProject: p usingGraph: GftDependencyGraph build commit: false.
+			self assert: result isBlocked.
+			self assert: result commitId isNil.
+			self assert: result applied isEmpty ] ]
+]
+
+{ #category : 'tests' }
 GftUpdaterTest >> testUpdateProjectNeverTouchesABlockedProject [
 	"Guards against a regression that would silently start mutating/committing a project whose
 	repository isn't safe to touch. Only exercises the actually-blocked path -- must NEVER call
@@ -41,6 +65,17 @@ GftUpdaterTest >> testUpdateProjectNeverTouchesABlockedProject [
 			self assert: result isBlocked.
 			self assert: result commitId isNil.
 			self assert: result applied isEmpty ] ]
+]
+
+{ #category : 'tests' }
+GftUpdaterTest >> testUpdateProjectsCommitFalseNeverTouchesABlockedSet [
+	"Only ever passes a project name to updateProjects:commit: if it is currently blocked --
+	must never create a real commit or a real code change as a side effect of this test."
+	| blockedNames results |
+	blockedNames := (GftProject knownProjects select: [ :p | (GftUpdater blockersForUpdating: p) isNotEmpty ]) collect: [ :p | p name ].
+	blockedNames isEmpty ifFalse: [
+		results := GftUpdater updateProjects: blockedNames commit: false.
+		results do: [ :r | self assert: r isBlocked ] ]
 ]
 
 { #category : 'tests' }

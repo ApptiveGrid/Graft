@@ -40,36 +40,22 @@ GftUpdater class >> commitMessageFor: aProject applied: appliedAssocs [
 
 { #category : 'updating' }
 GftUpdater class >> updateAll [
-	"Repeatedly rebuilds the dependency graph and updates every currently-safe, currently-stale
-	project, so that a project bumped in one round (e.g. apptive-common picking up Soil's new
-	tip) immediately makes its own consumers (e.g. apptive-account, apptive-scheduler) concretely
-	resolvable in the next round -- a real, non-placeholder cascade, since by the time round 2
-	runs the round-1 commits already exist locally (see GftVersionResolver>>effectiveTipFor:).
-	Stops when a round updates nothing. Never pushes. Answers all GftUpdateResults collected
-	across every round (including blocked/no-op ones, so the caller can report a full picture)."
-	| results maxRounds |
-	results := OrderedCollection new.
-	maxRounds := 20.
-	1 to: maxRounds do: [ :round |
-		| graph staleProjectNames roundResults anyApplied |
-		graph := GftDependencyGraph build.
-		staleProjectNames := graph projects
-			select: [ :p | (graph staleOutgoingReferencesOf: p name) isNotEmpty ]
-			thenCollect: [ :p | p name ].
-		staleProjectNames isEmpty ifTrue: [ ^ results ].
-		roundResults := staleProjectNames collect: [ :name |
-			self updateProject: (GftProject named: name) usingGraph: graph ].
-		results addAll: roundResults.
-		anyApplied := roundResults anySatisfy: [ :r | r applied isNotEmpty ].
-		anyApplied ifFalse: [ ^ results ] ].
-	^ results
+	^ self updateProjects: (GftProject knownProjects collect: [ :p | p name ]) commit: true
 ]
 
 { #category : 'updating' }
 GftUpdater class >> updateProject: aProject usingGraph: aGraph [
-	"Fixes every currently-stale outgoing commit-pinned reference of aProject in one commit
-	(if safe -- see #blockersForUpdating:). Applies each edit by recompiling the affected method
-	with its existing protocol preserved, then commits once via Iceberg. Never pushes."
+	"Convenience: change + commit, the original v1 behaviour."
+	^ self updateProject: aProject usingGraph: aGraph commit: true
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateProject: aProject usingGraph: aGraph commit: shouldCommit [
+	"Fixes every currently-stale outgoing commit-pinned reference of aProject by recompiling
+	the affected method(s) (existing protocol preserved). If shouldCommit is true, bundles all
+	of them into one commit via Iceberg (see #blockersForUpdating: for the safety gate this
+	requires); if false, the change is applied to the live image only and the repository is
+	left modified/uncommitted for the user to review and commit themselves."
 	| blockers staleRefs applied skipped |
 	blockers := self blockersForUpdating: aProject.
 	blockers isEmpty ifFalse: [ ^ GftUpdateResult projectName: aProject name blockers: blockers ].
@@ -97,5 +83,34 @@ GftUpdater class >> updateProject: aProject usingGraph: aGraph [
 		blockers: #()
 		applied: applied
 		skipped: skipped
-		commitId: (aProject iceRepository commitWithMessage: (self commitMessageFor: aProject applied: applied))
+		commitId: (shouldCommit
+			ifTrue: [ aProject iceRepository commitWithMessage: (self commitMessageFor: aProject applied: applied) ]
+			ifFalse: [ nil ])
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateProjects: aProjectNameCollection commit: shouldCommit [
+	"Applies #updateProject:usingGraph:commit: to every project named in aProjectNameCollection
+	that currently has fixable stale outgoing pins. When shouldCommit is true this repeats in
+	rounds -- rebuilding the graph each time -- so a project bumped in round 1 (e.g. apptive-common
+	picking up Soil's new tip) becomes a real, concrete input for round 2 (e.g. apptive-account
+	picking up apptive-common's new tip), via GftVersionResolver>>effectiveTipFor: preferring the
+	just-created local commit. When shouldCommit is false nothing ever advances (no commit means
+	no new tip for anyone to pick up), so it deliberately only ever does a single pass. Never pushes.
+	Answers every GftUpdateResult collected (including blocked/no-op ones)."
+	| results maxRounds |
+	results := OrderedCollection new.
+	maxRounds := shouldCommit ifTrue: [ 20 ] ifFalse: [ 1 ].
+	1 to: maxRounds do: [ :round |
+		| graph staleNames roundResults anyApplied |
+		graph := GftDependencyGraph build.
+		staleNames := aProjectNameCollection select: [ :name | (graph staleOutgoingReferencesOf: name) isNotEmpty ].
+		staleNames isEmpty ifTrue: [ ^ results ].
+		roundResults := staleNames collect: [ :name |
+			self updateProject: (GftProject named: name) usingGraph: graph commit: shouldCommit ].
+		results addAll: roundResults.
+		shouldCommit ifFalse: [ ^ results ].
+		anyApplied := roundResults anySatisfy: [ :r | r applied isNotEmpty ].
+		anyApplied ifFalse: [ ^ results ] ].
+	^ results
 ]

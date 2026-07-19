@@ -7,22 +7,20 @@ Class {
 
 { #category : 'building' }
 GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
-	"Builds a Roassal canvas visualizing aGraph: one box per known project (GftProject).
-	Fill color via GftDependencyGraph>>statusOf: (orange = own outgoing pins stale, light green =
-	up to date, light gray = neutral/no commit-pinned outgoing deps). Border highlights whether
-	OTHER projects depend on this one and are behind it (GftDependencyGraph>>hasStaleDependents:) --
-	a thick blue border means 'this project has a newer commit that some dependent hasn't picked
-	up yet'. Edges styled by pin kind (commit = solid black/orange if stale, branch = dashed gray,
-	none = dotted light gray), routed behind the nodes and with generous layer/sibling spacing so
-	arrows between non-adjacent layers don't run through unrelated boxes (Sugiyama's own default
-	gaps are only 3px/20px, far too tight for 130x40 boxes -- verified 2026-07-19 this was the
-	actual cause of Norbert reporting arrows being hard to follow). External/third-party leaves are
-	not drawn as nodes -- they are only visible via the detail panel for a selected project, see
-	GftPresenter. aOneArgBlock is evaluated with the clicked GftProject."
+	^ self canvasFor: aGraph projects: aGraph projects onSelect: aOneArgBlock
+]
 
-	| canvas boxes knownToKnownRefs edgesByKind layout |
+{ #category : 'building' }
+GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aOneArgBlock [
+	"Like #canvasFor:onSelect:, but only draws nodes for the projects in projectsToShow (and only
+	edges between two shown projects) -- used for the sidebar's 'Alle'/'Custom' filtered views.
+	Status/staleness is still computed against the full aGraph, so filtering the view never changes
+	what counts as stale. See class comment on #canvasFor:onSelect: for the rest."
+
+	| canvas boxes knownToKnownRefs edgesByKind layout shownNames |
 	canvas := RSCanvas new.
-	boxes := aGraph projects
+	shownNames := projectsToShow collect: [ :p | p name ].
+	boxes := projectsToShow
 		         collect: [ :proj |
 				         | composite hasStaleDependents |
 				         hasStaleDependents := aGraph hasStaleDependents:
@@ -56,7 +54,12 @@ GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 				         composite ]
 		         as: RSGroup.
 	canvas addAll: boxes.
-	knownToKnownRefs := aGraph allReferences reject: [ :r | r isExternal ].
+	knownToKnownRefs := aGraph allReferences reject: [ :r |
+			                    r isExternal or: [
+					                    (shownNames includes: r ownerProjectName) not
+						                    or: [
+						                    (shownNames includes: r targetProject name)
+							                    not ] ] ].
 	edgesByKind := Dictionary new.
 	knownToKnownRefs do: [ :r |
 			(edgesByKind at: r pinKind ifAbsentPut: [ OrderedCollection new ])

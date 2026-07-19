@@ -85,8 +85,23 @@ GftUpdateResult >> summary [
 	self didNothing ifTrue: [
 		stream nextPutAll: ': nichts zu tun (keine veralteten Pins)'.
 		^ stream contents ].
-	stream nextPutAll: ': aktualisiert, Commit ', (commitId ifNil: ['<keiner>']); cr.
+	applied isEmpty
+		ifTrue: [ stream nextPutAll: ': keine Änderung angewendet'; cr ]
+		ifFalse: [
+			commitId
+				ifNotNil: [ stream nextPutAll: ': committet (', commitId, ')'; cr ]
+				ifNil: [ stream nextPutAll: ': Code geändert, NICHT committet (Repository jetzt modifiziert -- selbst committen)'; cr ] ].
 	applied do: [ :a | stream nextPutAll: '  - ', a key, ' -> ', a value; cr ].
 	skipped do: [ :s | stream nextPutAll: '  - ', s key, ': übersprungen (', s value, ')'; cr ].
 	^ stream contents
+]
+
+{ #category : 'testing' }
+GftUpdateResult >> wasChangedButNotCommitted [
+	^ applied isNotEmpty and: [ commitId isNil ]
+]
+
+{ #category : 'testing' }
+GftUpdateResult >> wasCommitted [
+	^ commitId notNil
 ]
