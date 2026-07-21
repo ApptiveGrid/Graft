@@ -6,6 +6,27 @@ Class {
 }
 
 { #category : 'building' }
+GftGraphBuilder class >> addContextMenuTo: composite project: proj graph: aGraph [
+	"Right-click menu on a graph node: one entry per distinct dependent whose pin to this
+	project is stale, each opening a text diff of what actually changed in this project between
+	that pin and its current effective tip (see GftDiffFormatter). Only relevant for a project
+	that GftDependencyGraph>>hasStaleDependents: -- for others the menu just says so."
+	composite addInteraction: (RSMenuActivable new
+		menuDo: [ :menu :shape |
+			| staleDeps |
+			staleDeps := aGraph staleDependentsOf: proj name.
+			staleDeps isEmpty
+				ifTrue: [ menu add: 'Keine veralteten Abhängigen' target: self selector: #yourself ]
+				ifFalse: [
+					staleDeps do: [ :ref |
+						menu
+							add: 'Diff: ', ref ownerProjectName, ' hinkt hinterher (', (ref url ref), ' -> aktuell)'
+							target: self
+							selector: #showDiffForReference:
+							argument: ref ] ] ])
+]
+
+{ #category : 'building' }
 GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 	^ self canvasFor: aGraph projects: aGraph projects onSelect: aOneArgBlock
 ]
@@ -15,20 +36,37 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 	"Like #canvasFor:onSelect:, but only draws nodes for the projects in projectsToShow (and only
 	edges between two shown projects) -- used for the sidebar's 'Alle'/'Custom' filtered views.
 	Status/staleness is still computed against the full aGraph, so filtering the view never changes
-	what counts as stale. See class comment on #canvasFor:onSelect: for the rest."
+	what counts as stale.
+
+	Node fill: yellow if hasStaleDependents: (someone downstream has not caught up), gray otherwise.
+	Node border: red+thick if this project itself has stale outgoing pins (staleOutgoingReferencesOf:
+	notEmpty -- it needs to pull in an update from its OWN dependencies), plain black otherwise. Both
+	can apply at once (e.g. apptive-common: yellow fill because its consumers lag behind it, red
+	border because it itself lags behind Soil) -- two independent facts about a project, shown
+	independently (Norbert, 2026-07-20: the previous version only showed one of the two).
+	Edges: colored per-reference (GftGraphBuilder class>>colorForReference:/displayKeyFor:), not per
+	pin-kind group -- a stale commit pin draws yellow regardless of kind, so you can see exactly
+	which dependent is behind, not just that the target has some lagging dependent somewhere."
 
 	| canvas boxes knownToKnownRefs edgesByKey shownNames layout |
 	canvas := RSCanvas new.
 	shownNames := projectsToShow collect: [ :p | p name ].
 	boxes := projectsToShow
 		         collect: [ :proj |
-				         | composite |
+				         | composite hasOwnStale |
+				         hasOwnStale := (aGraph staleOutgoingReferencesOf:
+					                         proj name) isNotEmpty.
 				         composite := RSComposite new.
 				         composite add: (RSBox new
 						          extent: 130 @ 40;
 						          color: (self colorFor: proj name usingGraph: aGraph);
 						          border: (RSBorder new
-								           color: Color black;
+								           color: (hasOwnStale
+										            ifTrue: [ Color red ]
+										            ifFalse: [ Color black ]);
+								           width: (hasOwnStale
+										            ifTrue: [ 3 ]
+										            ifFalse: [ 1 ]);
 								           yourself);
 						          yourself).
 				         composite add: (RSLabel new
@@ -44,6 +82,10 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 					         when: RSMouseClick
 					         do: [ :evt | aOneArgBlock value: proj ]
 					         for: self.
+				         self
+					         addContextMenuTo: composite
+					         project: proj
+					         graph: aGraph.
 				         composite ]
 		         as: RSGroup.
 	canvas addAll: boxes.
@@ -120,4 +162,19 @@ GftGraphBuilder class >> displayKeyFor: aReference [
 	plain pin kind."
 	aReference isStale ifTrue: [ ^ #stale ].
 	^ aReference pinKind
+]
+
+{ #category : 'building' }
+GftGraphBuilder class >> showDiffForReference: aReference [
+	"Opens a GftDiffPresenter with a text summary of what changed in the referenced projects
+	own repository between the pinned (possibly stale) ref and its current effective tip."
+	| newRef text |
+	newRef := GftVersionResolver effectiveTipFor: aReference targetProject.
+	newRef ifNil: [
+		^ GftDiffPresenter openWithText: 'Kein bekannter aktueller Commit für ', aReference targetProject name, ' -- erst Refresh drücken.' ].
+	text := GftDiffFormatter
+		textDiffFor: aReference targetProject
+		oldRef: aReference url ref
+		newRef: newRef.
+	GftDiffPresenter openWithText: text
 ]
