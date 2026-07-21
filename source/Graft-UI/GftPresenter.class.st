@@ -56,40 +56,65 @@ GftPresenter >> connectPresenters [
 
 { #category : 'layout' }
 GftPresenter >> defaultLayout [
-	| top middle rightSide sidebarBox actionsBox bottomBox |
+	"Resizable throughout (SpPanedLayout everywhere two regions sit side by side or stacked,
+	so Norbert can drag to resize instead of living with fixed proportions) and with generous
+	spacing/borderWidth for padding (Norbert 2026-07-20: the tight default layout did not look
+	good)."
+	| top rightSide sidebarBox actionsBox bottomBox middlePaned outerPaned mainPaned |
 	sidebarBox := SpBoxLayout newTopToBottom
+		spacing: 6; borderWidth: 6;
 		add: 'Projekte' expand: false;
 		add: projectSidebar expand: true;
 		yourself.
 	top := SpBoxLayout newLeftToRight
+		spacing: 8; borderWidth: 8;
 		add: refreshButton expand: false;
 		add: selectedLabel expand: true;
 		add: bumpButton expand: false;
 		yourself.
-	rightSide := SpBoxLayout newTopToBottom
-		add: 'Abhängigkeiten dieses Projekts' expand: false;
-		add: detailTable expand: true;
-		add: 'Abhängige Projekte (wer zeigt hierauf)' expand: false;
-		add: dependentsTable expand: true;
+	rightSide := SpPanedLayout newTopToBottom
+		positionOfSlider: 50 percent;
+		add: (SpBoxLayout newTopToBottom
+			spacing: 6; borderWidth: 6;
+			add: 'Abhängigkeiten dieses Projekts' expand: false;
+			add: detailTable expand: true;
+			yourself);
+		add: (SpBoxLayout newTopToBottom
+			spacing: 6; borderWidth: 6;
+			add: 'Abhängige Projekte (wer zeigt hierauf)' expand: false;
+			add: dependentsTable expand: true;
+			yourself);
 		yourself.
-	middle := SpBoxLayout newLeftToRight
-		add: sidebarBox width: 180;
-		add: roassal expand: true;
-		add: rightSide expand: true;
+	middlePaned := SpPanedLayout newLeftToRight
+		positionOfSlider: 60 percent;
+		add: roassal;
+		add: rightSide;
+		yourself.
+	outerPaned := SpPanedLayout newLeftToRight
+		positionOfSlider: 15 percent;
+		add: sidebarBox;
+		add: middlePaned;
 		yourself.
 	actionsBox := SpBoxLayout newLeftToRight
+		spacing: 8; borderWidth: 6;
 		add: commitCheckbox expand: false;
 		add: updateButton expand: false;
 		yourself.
 	bottomBox := SpBoxLayout newTopToBottom
+		spacing: 6; borderWidth: 6;
 		add: 'Veraltete Pins im aktuellen Scope (Häkchen = wird bei Aktualisieren angefasst)' expand: false;
 		add: staleRefsTable expand: true;
 		add: actionsBox expand: false;
 		yourself.
+	mainPaned := SpPanedLayout newTopToBottom
+		positionOfSlider: 65 percent;
+		add: outerPaned;
+		add: bottomBox;
+		yourself.
 	^ SpBoxLayout newTopToBottom
+		spacing: 6; borderWidth: 6;
 		add: top expand: false;
-		add: middle expand: true;
-		add: bottomBox expand: false;
+		add: mainPaned expand: true;
 		add: planText expand: false;
 		yourself
 ]
@@ -214,8 +239,17 @@ GftPresenter >> refreshAll [
 
 { #category : 'actions' }
 GftPresenter >> refreshStaleRefsTableForScope: names [
+	"Every currently-stale reference touching the given scope on EITHER side -- both this
+	scopes own outgoing stale pins (it needs to catch up to something) and other projects
+	stale pins pointing at something in scope (they need to catch up to it). Fixed 2026-07-20:
+	previously only looked at ownerProjectName, so clicking e.g. apptivescript (which has no
+	stale outgoing pins of its own) showed an empty table even though apptive-base -- visible
+	right there in the Abhaengige-Projekte table as veraltet -- has a stale pin to apptivescript;
+	Aktualisieren then had nothing to act on."
 	| refs |
-	refs := (graph allReferences select: [ :r | (names includes: r ownerProjectName) and: [ r isStale ] ]) asOrderedCollection.
+	refs := (graph allReferences select: [ :r |
+		r isStale and: [ (names includes: r ownerProjectName) or: [ names includes: r targetProject name ] ] ])
+		asOrderedCollection.
 	staleRefsTable items: refs.
 	staleRefsTable selectAll
 ]
