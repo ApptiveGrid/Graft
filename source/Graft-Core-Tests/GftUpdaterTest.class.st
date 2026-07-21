@@ -6,6 +6,22 @@ Class {
 }
 
 { #category : 'tests' }
+GftUpdaterTest >> testBlockersDoNotFlagOwnBaselinePackageBeingModified [
+	"A projects own BaselineOf package being the ONLY dirty one must NOT block by itself --
+	this is what lets several sequential change-only (no commit) single-pin updates on the same
+	project build on each other instead of the second one failing because the first left the
+	project modified (Norbert reported exactly this 2026-07-20)."
+	GftProject knownProjects do: [ :p |
+		| repo otherDirty blockers |
+		repo := p iceRepository.
+		repo ifNotNil: [
+			otherDirty := repo modifiedPackages reject: [ :pkg | pkg name = p baselineClassName ].
+			otherDirty isEmpty ifTrue: [
+				blockers := GftUpdater blockersForUpdating: p.
+				blockers do: [ :b | self deny: (b includesSubstring: 'unabhängige') ] ] ] ]
+]
+
+{ #category : 'tests' }
 GftUpdaterTest >> testBlockersFlagBranchMismatch [
 	"Read-only check: whenever a known project's repo is not on its tracked branch, blockers
 	must be non-empty. Deliberately does not hardcode which projects are affected -- branch
@@ -19,12 +35,16 @@ GftUpdaterTest >> testBlockersFlagBranchMismatch [
 ]
 
 { #category : 'tests' }
-GftUpdaterTest >> testBlockersFlagModifiedRepo [
+GftUpdaterTest >> testBlockersFlagUnrelatedModifiedPackages [
+	"Being modified in some OTHER package (not the project own BaselineOf) must still block --
+	this is the real safety net against bundling unrelated WIP into a Graft commit."
 	GftProject knownProjects do: [ :p |
-		| repo |
+		| repo otherDirty |
 		repo := p iceRepository.
-		(repo notNil and: [ repo isModified ]) ifTrue: [
-			self assert: (GftUpdater blockersForUpdating: p) isNotEmpty ] ]
+		repo ifNotNil: [
+			otherDirty := repo modifiedPackages reject: [ :pkg | pkg name = p baselineClassName ].
+			otherDirty isEmpty ifFalse: [
+				self assert: (GftUpdater blockersForUpdating: p) isNotEmpty ] ] ]
 ]
 
 { #category : 'tests' }

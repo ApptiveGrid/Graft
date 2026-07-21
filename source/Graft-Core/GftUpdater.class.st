@@ -9,11 +9,20 @@ Class {
 GftUpdater class >> blockersForUpdating: aProject [
 	"Safety preconditions that must hold before Graft touches aProject's repository at all:
 	it must be on its tracked branch (not detached, not some other WIP branch) and have no
-	pre-existing uncommitted changes of its own -- several of the real repos in this ecosystem
-	are routinely checked out on feature branches or have unrelated local edits in progress
-	(verified 2026-07-19), and Graft must never fold those into its own commit or commit onto
-	the wrong branch."
-	| repo blockers |
+	pre-existing uncommitted changes UNRELATED to its own BaselineOf package. Several of the
+	real repos in this ecosystem are routinely checked out on feature branches or have
+	unrelated local edits in progress (verified 2026-07-19), and Graft must never fold those
+	into its own commit or commit onto the wrong branch.
+
+	Deliberately does NOT block just because the repository is modified at all: Graft's own
+	previous change-only edit (commit checkbox off, see Graft decisions) leaves the BaselineOf
+	package dirty on purpose, so a second single-pin update on the same project can build on
+	it -- blocking that would defeat the whole point of change-only mode (found 2026-07-20:
+	Norbert reported the first of several sequential single-project updates working and the
+	second failing purely because the first had left the project modified). Only a dirty
+	package OTHER than the project's own BaselineOf package is treated as unrelated,
+	pre-existing work Graft must not touch."
+	| repo blockers baselinePackageName otherModifiedPackages |
 	blockers := OrderedCollection new.
 	repo := aProject iceRepository.
 	repo ifNil: [ blockers add: 'Kein Iceberg-Repository registriert.'. ^ blockers ].
@@ -22,8 +31,12 @@ GftUpdater class >> blockersForUpdating: aProject [
 		ifTrue: [
 			repo branchName = aProject trackedRef ifFalse: [
 				blockers add: 'Repository steht auf Branch ''', repo branchName, ''', nicht auf dem getrackten Branch ''', aProject trackedRef, '''.' ] ].
-	repo isModified ifTrue: [
-		blockers add: 'Repository hat bereits unabhängige, nicht committete Änderungen -- Graft fasst das nicht an.' ].
+	baselinePackageName := aProject baselineClassName.
+	otherModifiedPackages := repo modifiedPackages reject: [ :pkg | pkg name = baselinePackageName ].
+	otherModifiedPackages isEmpty ifFalse: [
+		blockers add: 'Repository hat bereits unabhängige, nicht committete Änderungen in: ',
+			((otherModifiedPackages collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]),
+			' -- Graft fasst das nicht an.' ].
 	^ blockers
 ]
 
