@@ -34,19 +34,23 @@ GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 { #category : 'building' }
 GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aOneArgBlock [
 	"Like #canvasFor:onSelect:, but only draws nodes for the projects in projectsToShow (and only
-	edges between two shown projects) -- used for the sidebar's 'Alle'/'Custom' filtered views.
+	edges between two shown projects) -- used for the sidebars 'Alle'/'Custom' filtered views.
 	Status/staleness is still computed against the full aGraph, so filtering the view never changes
 	what counts as stale.
 
 	Node fill: yellow if hasStaleDependents: (someone downstream has not caught up), gray otherwise.
 	Node border: red+thick if this project itself has stale outgoing pins (staleOutgoingReferencesOf:
 	notEmpty -- it needs to pull in an update from its OWN dependencies), plain black otherwise. Both
-	can apply at once (e.g. apptive-common: yellow fill because its consumers lag behind it, red
-	border because it itself lags behind Soil) -- two independent facts about a project, shown
-	independently (Norbert, 2026-07-20: the previous version only showed one of the two).
+	can apply at once. The project name label sits directly on top of the box (both shapes default
+	to position 0@0 in the composite, so they overlay exactly instead of being laid out as two
+	stacked shapes -- fixed 2026-07-21, RSVerticalLineLayout previously stacked box and label as two
+	separate elements instead of the name appearing inside the box).
+
 	Edges: colored per-reference (GftGraphBuilder class>>colorForReference:/displayKeyFor:), not per
-	pin-kind group -- a stale commit pin draws yellow regardless of kind, so you can see exactly
-	which dependent is behind, not just that the target has some lagging dependent somewhere."
+	pin-kind group -- a stale commit pin draws yellow regardless of kind. Each edge additionally
+	carries a text marker at its midpoint (GftGraphBuilder class>>edgeLabelTextFor:) showing the
+	pinned commit (short form)/branch it points at, so its visible which exact version a dependent
+	is pinned to without having to click through to the detail table."
 
 	| canvas boxes knownToKnownRefs edgesByKey shownNames layout |
 	canvas := RSCanvas new.
@@ -73,9 +77,6 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 						          text: proj name;
 						          color: Color black;
 						          yourself).
-				         RSVerticalLineLayout new
-					         alignCenter;
-					         on: composite shapes.
 				         composite adjustToChildren.
 				         composite model: proj.
 				         composite
@@ -101,7 +102,7 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 				 at: (self displayKeyFor: r)
 				 ifAbsentPut: [ OrderedCollection new ]) add: r ].
 	#( #stale #commit #branch #none ) do: [ :key |
-			| refsOfKey assocs builder |
+			| refsOfKey assocs builder createdEdges |
 			refsOfKey := edgesByKey at: key ifAbsent: [ #(  ) ].
 			refsOfKey isEmpty ifFalse: [
 					assocs := refsOfKey collect: [ :r |
@@ -114,7 +115,16 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 						           moveBehind;
 						           yourself.
 					key = #branch ifTrue: [ builder dashed ].
-					builder useAssociations: assocs ] ].
+					createdEdges := builder useAssociations: assocs.
+					createdEdges with: refsOfKey do: [ :edge :ref |
+							| labelText |
+							labelText := self edgeLabelTextFor: ref.
+							labelText isEmpty ifFalse: [
+									edge markerMid: (RSLabel new
+											 text: labelText;
+											 color: (self colorForReference: ref);
+											 fontSize: 8;
+											 yourself) ] ] ] ].
 	layout := RSSugiyamaLayout new.
 	layout horizontalGap: 50.
 	layout verticalGap: 70.
@@ -162,6 +172,20 @@ GftGraphBuilder class >> displayKeyFor: aReference [
 	plain pin kind."
 	aReference isStale ifTrue: [ ^ #stale ].
 	^ aReference pinKind
+]
+
+{ #category : 'colors' }
+GftGraphBuilder class >> edgeLabelTextFor: aReference [
+	"Short text shown at the midpoint of an edge: gits own 7-char abbreviation for a commit
+	pin (matching how Norbert already sees short hashes elsewhere, e.g. BaselineOfApptiveBase
+	pins FluxBase via the short form itself), the branch name as-is for a branch pin, nothing
+	for an unpinned (#none) reference (there is no ref to show)."
+	| ref |
+	ref := aReference url ref.
+	ref ifNil: [ ^ '' ].
+	^ (aReference pinKind = #commit and: [ ref size > 7 ])
+		ifTrue: [ ref copyFrom: 1 to: 7 ]
+		ifFalse: [ ref ]
 ]
 
 { #category : 'building' }

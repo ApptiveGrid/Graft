@@ -20,13 +20,19 @@ GftProject class >> buildKnownProjects [
 	"ApptiveGrid-owned projects only (v1 scope, decided with Norbert 2026-07-19) -- third-party
 	dependencies (NeoCSV, Zinc, Mustache, ...) are deliberately not tracked as bump targets here,
 	they only ever appear as external leaves in the dependency graph. Owner/host verified against
-	the actual git remotes registered in Iceberg; trackedRef is the conventional release branch per
-	project (verified via Iceberg remote branches where possible, see Graft doc)."
+	the actual git remotes registered in Iceberg. trackedRef is a MANUALLY researched/maintained
+	guess at each projects conventional release branch -- there is no reliable automatic way to
+	derive this: origin/HEAD (a repos actual default-branch pointer) errors out via Icebergs
+	libgit2 binding in this image when resolving the symbolic ref, and the locally checked-out
+	branch is routinely some unrelated WIP branch, not the tracked one, so it cannot be inferred
+	from that either. Norbert corrected apptive-scheduler from main to development 2026-07-21
+	(Graft had wrongly insisted otherwise) -- if another entry here is wrong, it needs the same
+	kind of manual fix, see Graft doc."
 	^ {
 		self name: 'apptive-base' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveBase' trackedRef: 'development'.
 		self name: 'apptive-account' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveAccount' trackedRef: 'master'.
 		self name: 'apptive-common' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveCommon' trackedRef: 'main'.
-		self name: 'apptive-scheduler' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveScheduler' trackedRef: 'main'.
+		self name: 'apptive-scheduler' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveScheduler' trackedRef: 'development'.
 		self name: 'apptivescript' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveScript' trackedRef: 'master'.
 		self name: 'FluxBase' host: #github owner: 'ApptiveGrid' baselineClassName: 'BaselineOfFluxBase' trackedRef: 'main'.
 		self name: 'Soil' host: #github owner: 'ApptiveGrid' baselineClassName: 'BaselineOfSoil' trackedRef: 'main'.
