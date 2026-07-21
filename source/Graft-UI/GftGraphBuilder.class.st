@@ -166,15 +166,14 @@ GftGraphBuilder class >> displayKeyFor: aReference [
 
 { #category : 'building' }
 GftGraphBuilder class >> showDiffForReference: aReference [
-	"Opens a GftDiffPresenter with a text summary of what changed in the referenced projects
-	own repository between the pinned (possibly stale) ref and its current effective tip."
-	| newRef text |
+	"Opens a GftDiffPresenter: a list of changed methods/classes on the left, and the
+	old/new source of the selected one in two side-by-side panes on the right."
+	| newRef |
 	newRef := GftVersionResolver effectiveTipFor: aReference targetProject.
 	newRef ifNil: [
-		^ GftDiffPresenter openWithText: 'Kein bekannter aktueller Commit für ', aReference targetProject name, ' -- erst Refresh drücken.' ].
-	text := GftDiffFormatter
-		textDiffFor: aReference targetProject
+		^ UIManager default inform: 'Kein bekannter aktueller Commit für ', aReference targetProject name, ' -- erst Refresh drücken.' ].
+	GftDiffPresenter
+		openForProject: aReference targetProject
 		oldRef: aReference url ref
-		newRef: newRef.
-	GftDiffPresenter openWithText: text
+		newRef: newRef
 ]
