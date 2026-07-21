@@ -135,17 +135,17 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 
 { #category : 'colors' }
 GftGraphBuilder class >> colorFor: aProjectName usingGraph: aGraph [
-	"Node fill color is purely about propagation: yellow if this project has shipped something
-	that not every dependent has picked up yet (GftDependencyGraph>>hasStaleDependents:), gray
-	otherwise -- including leaf/root projects with no dependents at all. Deliberately does not
-	reflect whether this project itself needs to pull in an update from ITS OWN dependencies
-	(GftDependencyGraph>>statusOf:/staleOutgoingReferencesOf: still answer that; it shows in the
-	Veraltete-Pins-Tabelle when the project is selected, just not as a third graph color anymore --
-	Norbert simplified this 2026-07-20 to gray/yellow only, one clear question per node: does
-	something downstream still need to catch up to me?)."
-	^ (aGraph hasStaleDependents: aProjectName)
-		ifTrue: [ Color yellow ]
-		ifFalse: [ Color veryLightGray ]
+	"Node fill color, three states in priority order (Norbert, 2026-07-21): yellow if this
+	project has shipped something not every dependent has picked up yet
+	(GftDependencyGraph>>hasStaleDependents:) -- takes priority regardless of this projects
+	own status, since thats the more urgent signal for whoever looks at the graph; otherwise
+	light green if this project itself has no stale outgoing pins (its own dependencies are
+	all current, GftDependencyGraph>>staleOutgoingReferencesOf: empty); otherwise plain gray
+	(no stale dependents, but this project itself still needs to catch up to its own
+	dependencies -- also visible via the red/thick border, see #canvasFor:projects:onSelect:)."
+	(aGraph hasStaleDependents: aProjectName) ifTrue: [ ^ Color yellow ].
+	(aGraph staleOutgoingReferencesOf: aProjectName) isEmpty ifTrue: [ ^ Color lightGreen ].
+	^ Color veryLightGray
 ]
 
 { #category : 'colors' }
