@@ -59,7 +59,9 @@ GftPresenter >> defaultLayout [
 	"Resizable throughout (SpPanedLayout everywhere two regions sit side by side or stacked,
 	so Norbert can drag to resize instead of living with fixed proportions) and with generous
 	spacing/borderWidth for padding (Norbert 2026-07-20: the tight default layout did not look
-	good)."
+	good). actionsBox gives commitCheckbox expand: true (Norbert 2026-07-21: its label text ran
+	into updateButton when both sat at their natural width side by side) so the checkbox owns
+	the remaining row width and updateButton is pinned flush against the right edge."
 	| top rightSide sidebarBox actionsBox bottomBox middlePaned outerPaned mainPaned |
 	sidebarBox := SpBoxLayout newTopToBottom
 		spacing: 6; borderWidth: 6;
@@ -97,7 +99,7 @@ GftPresenter >> defaultLayout [
 		yourself.
 	actionsBox := SpBoxLayout newLeftToRight
 		spacing: 8; borderWidth: 6;
-		add: commitCheckbox expand: false;
+		add: commitCheckbox expand: true;
 		add: updateButton expand: false;
 		yourself.
 	bottomBox := SpBoxLayout newTopToBottom
