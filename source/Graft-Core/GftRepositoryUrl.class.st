@@ -66,11 +66,16 @@ GftRepositoryUrl >> path [
 
 { #category : 'testing' }
 GftRepositoryUrl >> pinKind [
-	"#commit if the ref looks like a full git commit SHA (40 hex chars), #branch if some
-	other ref is pinned (the dependency still floats to whatever that branch points at),
-	#none if there is no ref at all (floats on the remote's default branch)."
+	"#commit if the ref looks like a git commit SHA, full (40 hex chars) or abbreviated
+	(gits own default abbreviation is commonly 7-12 chars; anything from 4 up is accepted --
+	verified 2026-07-19 against a real case: BaselineOfApptiveBase>>fluxbase: pins FluxBase via
+	the short form '90341f8', not a full SHA -- this used to be misclassified as #branch, which
+	would have silently hidden it from staleness/cascade detection). #branch if some other ref is
+	pinned (the dependency still floats to whatever that branch points at). #none if there is no
+	ref at all (floats on the remotes default branch)."
 	ref ifNil: [ ^ #none ].
-	^ (ref size = 40 and: [ ref allSatisfy: [ :c | c isDigit or: [ c asLowercase between: $a and: $f ] ] ])
+	^ ((ref size between: 4 and: 40)
+		and: [ ref allSatisfy: [ :c | c isDigit or: [ c asLowercase between: $a and: $f ] ] ])
 		ifTrue: [ #commit ]
 		ifFalse: [ #branch ]
 ]

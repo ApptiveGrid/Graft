@@ -79,6 +79,19 @@ GftUpdaterTest >> testUpdateProjectsCommitFalseNeverTouchesABlockedSet [
 ]
 
 { #category : 'tests' }
+GftUpdaterTest >> testUpdateReferencesNeverTouchesABlockedProject [
+	"Only ever passes references whose owner project is currently blocked -- must never create
+	a real commit or code change as a side effect of running this test."
+	| blockedProject refs results |
+	blockedProject := GftProject knownProjects detect: [ :p | (GftUpdater blockersForUpdating: p) isNotEmpty ] ifNone: [ nil ].
+	blockedProject ifNotNil: [
+		refs := GftDependencyGraph build staleOutgoingReferencesOf: blockedProject name.
+		refs isEmpty ifFalse: [
+			results := GftUpdater updateReferences: refs commit: false.
+			results do: [ :r | self assert: r isBlocked ] ] ]
+]
+
+{ #category : 'tests' }
 GftUpdaterTest >> testUpdateResultDidNothingWhenNoStaleRefs [
 	| result |
 	result := GftUpdateResult projectName: 'x' blockers: #().

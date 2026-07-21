@@ -6,6 +6,23 @@ Class {
 }
 
 { #category : 'tests' }
+GftBaselineParserTest >> testAbbreviatedPinIsNotMisreportedStaleWhenItIsAPrefixOfTheCurrentTip [
+	"Regression test for the isStale fix (2026-07-19): apptive-bases FluxBase pin is an
+	abbreviated SHA in the real ecosystem -- isStale must prefix-match against the effective
+	tip, not compare for exact string equality (which would always report stale for an
+	abbreviated pin, even a perfectly current one)."
+	| refs ref tip |
+	refs := GftBaselineParser referencesFor: (GftProject named: 'apptive-base').
+	ref := refs detect: [ :r | r declaredName = 'FluxBase' ].
+	self assert: ref pinKind equals: #commit.
+	tip := GftVersionResolver effectiveTipFor: ref targetProject.
+	tip ifNotNil: [
+		(tip beginsWith: ref url ref)
+			ifTrue: [ self deny: ref isStale ]
+			ifFalse: [ self assert: ref isStale ] ]
+]
+
+{ #category : 'tests' }
 GftBaselineParserTest >> testAllKnownProjectsParseWithoutError [
 	GftProject knownProjects do: [ :p |
 		[ GftBaselineParser referencesFor: p ]

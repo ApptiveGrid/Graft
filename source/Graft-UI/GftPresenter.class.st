@@ -4,12 +4,12 @@ Class {
 	#instVars : [
 		'graph',
 		'selectedProject',
-		'actionTargetNames',
 		'viewProjectNames',
 		'roassal',
 		'projectSidebar',
 		'detailTable',
 		'dependentsTable',
+		'staleRefsTable',
 		'selectedLabel',
 		'planText',
 		'refreshButton',
@@ -35,7 +35,6 @@ GftPresenter class >> open [
 GftPresenter >> applyCustomSelection: chosenNames [
 	chosenNames isEmpty ifTrue: [ ^ self inform: 'Keine Projekte ausgewählt.' ].
 	viewProjectNames := chosenNames.
-	actionTargetNames := chosenNames.
 	selectedProject := nil.
 	selectedLabel label: 'Custom (', chosenNames size printString, ' Projekte)'.
 	detailTable items: #().
@@ -43,22 +42,8 @@ GftPresenter >> applyCustomSelection: chosenNames [
 	roassal canvas: (GftGraphBuilder
 		canvasFor: graph
 		projects: (chosenNames collect: [ :n | GftProject named: n ])
-		onSelect: [ :proj | self showProject: proj ])
-]
-
-{ #category : 'actions' }
-GftPresenter >> buildPreviewTextFor: names [
-	| stream any |
-	stream := String new writeStream.
-	any := false.
-	names do: [ :name |
-		(graph staleOutgoingReferencesOf: name) do: [ :ref |
-			| newRef |
-			newRef := GftVersionResolver effectiveTipFor: ref targetProject.
-			newRef ifNotNil: [
-				any := true.
-				stream nextPutAll: (GftBaselineRewriter previewForReference: ref newRef: newRef) diffText; cr; cr ] ] ].
-	^ any ifTrue: [ stream contents ] ifFalse: [ '' ]
+		onSelect: [ :proj | self showProject: proj ]).
+	self refreshStaleRefsTableForScope: viewProjectNames
 ]
 
 { #category : 'initialization' }
@@ -71,7 +56,7 @@ GftPresenter >> connectPresenters [
 
 { #category : 'layout' }
 GftPresenter >> defaultLayout [
-	| top middle rightSide sidebarBox actionsBox |
+	| top middle rightSide sidebarBox actionsBox bottomBox |
 	sidebarBox := SpBoxLayout newTopToBottom
 		add: 'Projekte' expand: false;
 		add: projectSidebar expand: true;
@@ -81,25 +66,30 @@ GftPresenter >> defaultLayout [
 		add: selectedLabel expand: true;
 		add: bumpButton expand: false;
 		yourself.
-	actionsBox := SpBoxLayout newLeftToRight
-		add: commitCheckbox expand: false;
-		add: updateButton expand: false;
-		yourself.
 	rightSide := SpBoxLayout newTopToBottom
 		add: 'Abhängigkeiten dieses Projekts' expand: false;
 		add: detailTable expand: true;
 		add: 'Abhängige Projekte (wer zeigt hierauf)' expand: false;
 		add: dependentsTable expand: true;
-		add: actionsBox expand: false;
 		yourself.
 	middle := SpBoxLayout newLeftToRight
 		add: sidebarBox width: 180;
 		add: roassal expand: true;
 		add: rightSide expand: true;
 		yourself.
+	actionsBox := SpBoxLayout newLeftToRight
+		add: commitCheckbox expand: false;
+		add: updateButton expand: false;
+		yourself.
+	bottomBox := SpBoxLayout newTopToBottom
+		add: 'Veraltete Pins im aktuellen Scope (Häkchen = wird bei Aktualisieren angefasst)' expand: false;
+		add: staleRefsTable expand: true;
+		add: actionsBox expand: false;
+		yourself.
 	^ SpBoxLayout newTopToBottom
 		add: top expand: false;
 		add: middle expand: true;
+		add: bottomBox expand: false;
 		add: planText expand: false;
 		yourself
 ]
@@ -108,7 +98,6 @@ GftPresenter >> defaultLayout [
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
 	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
-	actionTargetNames := viewProjectNames.
 	roassal := self newRoassal.
 	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	projectSidebar := self newList.
@@ -142,6 +131,14 @@ GftPresenter >> initializePresenters [
 			r pinKind = #commit
 				ifTrue: [ r isStale ifTrue: [ 'veraltet' ] ifFalse: [ 'aktuell' ] ]
 				ifFalse: [ '-' ] ]).
+	staleRefsTable := self newTable.
+	staleRefsTable beMultipleSelection.
+	staleRefsTable
+		addColumn: (SpStringTableColumn title: 'Projekt' evaluated: [ :r | r ownerProjectName ]);
+		addColumn: (SpStringTableColumn title: 'Abhängigkeit' evaluated: [ :r | r declaredName ]);
+		addColumn: (SpStringTableColumn title: 'Alter Ref' evaluated: [ :r | self shorten: r url ref ]);
+		addColumn: (SpStringTableColumn title: 'Neuer Ref' evaluated: [ :r |
+			self shorten: (GftVersionResolver effectiveTipFor: r targetProject) ]).
 	refreshButton := self newButton.
 	refreshButton label: 'Refresh (fetch)'.
 	bumpButton := self newButton.
@@ -150,7 +147,7 @@ GftPresenter >> initializePresenters [
 	commitCheckbox label: 'Committen (statt nur Code ändern)'.
 	commitCheckbox state: false.
 	updateButton := self newButton.
-	updateButton label: 'Aktualisieren'.
+	updateButton label: 'Ausgewählte Pins aktualisieren'.
 	planText := self newText.
 	planText beNotEditable
 ]
@@ -159,30 +156,36 @@ GftPresenter >> initializePresenters [
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
-	picker initiallySelected: actionTargetNames.
+	picker initiallySelected: viewProjectNames.
 	picker onApply: [ :chosenNames | self applyCustomSelection: chosenNames ].
 	picker open
 ]
 
 { #category : 'actions' }
 GftPresenter >> performUpdate [
-	"Applies to whatever is currently the action target: a single project (sidebar row or
-	graph-node click), 'Alle', or a 'Custom' subset -- see #showProject:/#selectAllView/
-	#applyCustomSelection:. commitCheckbox controls whether this only rewrites the BaselineOf
-	method(s) in the live image (left uncommitted, for the user to review/commit themselves)
-	or also commits locally in one go per project -- see GftUpdater. Never pushes."
-	| commit preview results summary |
-	actionTargetNames ifNil: [ ^ self inform: 'Bitte zuerst links ein Projekt oder eine Auswahl wählen.' ].
+	"Applies exactly the rows currently checked/selected in the 'Ausgewählte Pins'-Tabelle --
+	not automatically every stale pin of a project. This is the fix for Norbert reporting that
+	updating one project bundled in a dependency (FluxBase) he did not want touched yet: the
+	table lists every currently-stale pin in scope, pre-selected, and he can deselect any of them
+	before clicking this button. commitCheckbox controls whether this only rewrites the affected
+	BaselineOf method(s) in the live image (left uncommitted) or also commits locally, one commit
+	per owner project -- see GftUpdater class>>updateReferences:commit:. Never pushes."
+	| chosen commit preview results summary |
+	chosen := staleRefsTable selectedItems asOrderedCollection.
+	chosen isEmpty ifTrue: [ ^ self inform: 'Keine Pins ausgewählt (Tabelle unten rechts).' ].
 	commit := commitCheckbox state.
-	preview := self buildPreviewTextFor: actionTargetNames.
-	preview isEmpty ifTrue: [ ^ self inform: 'Keine veralteten Pins in der aktuellen Auswahl.' ].
-	planText text: preview.
+	preview := String new writeStream.
+	chosen do: [ :ref |
+		| newRef |
+		newRef := GftVersionResolver effectiveTipFor: ref targetProject.
+		newRef ifNotNil: [
+			preview nextPutAll: (GftBaselineRewriter previewForReference: ref newRef: newRef) diffText; cr; cr ] ].
+	planText text: preview contents.
 	(self confirm: (commit
-		ifTrue: [ 'Änderungen jetzt anwenden UND lokal committen (kein Push)?' ]
-		ifFalse: [ 'Nur den Code jetzt ändern, NICHT committen?' ]))
+		ifTrue: [ chosen size printString, ' ausgewählte Pin(s) jetzt ändern UND lokal committen (kein Push)?' ]
+		ifFalse: [ chosen size printString, ' ausgewählte Pin(s) nur im Code ändern, NICHT committen?' ]))
 		ifFalse: [ ^ self ].
-	results := GftUpdater updateProjects: actionTargetNames commit: commit.
-	results isEmpty ifTrue: [ ^ self inform: 'Nichts zu tun.' ].
+	results := GftUpdater updateReferences: chosen commit: commit.
 	summary := String new writeStream.
 	results do: [ :r | summary nextPutAll: r summary; cr; cr ].
 	planText text: summary contents.
@@ -198,7 +201,9 @@ GftPresenter >> rebuildGraphView [
 			canvasFor: graph
 			projects: (viewProjectNames collect: [ :n | GftProject named: n ])
 			onSelect: [ :proj | self showProject: proj ] ]).
-	selectedProject ifNotNil: [ self showProject: selectedProject ]
+	selectedProject
+		ifNotNil: [ self showProject: selectedProject ]
+		ifNil: [ self refreshStaleRefsTableForScope: viewProjectNames ]
 ]
 
 { #category : 'actions' }
@@ -208,14 +213,29 @@ GftPresenter >> refreshAll [
 ]
 
 { #category : 'actions' }
+GftPresenter >> refreshStaleRefsTableForScope: names [
+	| refs |
+	refs := (graph allReferences select: [ :r | (names includes: r ownerProjectName) and: [ r isStale ] ]) asOrderedCollection.
+	staleRefsTable items: refs.
+	staleRefsTable selectAll
+]
+
+{ #category : 'actions' }
 GftPresenter >> selectAllView [
 	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
-	actionTargetNames := viewProjectNames.
 	selectedProject := nil.
 	selectedLabel label: 'Alle Projekte'.
 	detailTable items: #().
 	dependentsTable items: #().
-	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ])
+	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	self refreshStaleRefsTableForScope: viewProjectNames
+]
+
+{ #category : 'private' }
+GftPresenter >> shorten: aStringOrNil [
+	aStringOrNil ifNil: [ ^ '' ].
+	aStringOrNil size <= 10 ifTrue: [ ^ aStringOrNil ].
+	^ (aStringOrNil copyFrom: 1 to: 10), '...'
 ]
 
 { #category : 'actions' }
@@ -243,16 +263,16 @@ GftPresenter >> showBumpPlanForSelectedProject [
 
 { #category : 'actions' }
 GftPresenter >> showProject: aProject [
-	"Populates the detail/dependents tables and makes aProject the single target for the
-	Update button -- used both by clicking a node in the graph and by clicking an individual
-	project row in the sidebar. Deliberately does not touch the sidebar selection or which
-	projects are currently drawn in the graph (see #selectAllView/#applyCustomSelection: for
-	that), so inspecting one project does not lose a Custom view."
+	"Populates the detail/dependents (browsing) tables AND scopes the 'Ausgewählte Pins'
+	action table down to just this one project's stale references -- used both by clicking a
+	node in the graph and by clicking an individual project row in the sidebar. Does not change
+	which projects are drawn in the graph (see #selectAllView/#applyCustomSelection: for that),
+	so inspecting/updating one project does not lose a Custom view."
 	selectedProject := aProject.
-	actionTargetNames := { aProject name }.
 	selectedLabel label: aProject name.
 	detailTable items: (graph referencesFrom: aProject name) asOrderedCollection.
-	dependentsTable items: (graph dependentsOf: aProject name) asOrderedCollection
+	dependentsTable items: (graph dependentsOf: aProject name) asOrderedCollection.
+	self refreshStaleRefsTableForScope: { aProject name }
 ]
 
 { #category : 'actions' }

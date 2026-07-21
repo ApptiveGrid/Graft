@@ -44,26 +44,17 @@ GftUpdater class >> updateAll [
 ]
 
 { #category : 'updating' }
-GftUpdater class >> updateProject: aProject usingGraph: aGraph [
-	"Convenience: change + commit, the original v1 behaviour."
-	^ self updateProject: aProject usingGraph: aGraph commit: true
-]
-
-{ #category : 'updating' }
-GftUpdater class >> updateProject: aProject usingGraph: aGraph commit: shouldCommit [
-	"Fixes every currently-stale outgoing commit-pinned reference of aProject by recompiling
-	the affected method(s) (existing protocol preserved). If shouldCommit is true, bundles all
-	of them into one commit via Iceberg (see #blockersForUpdating: for the safety gate this
-	requires); if false, the change is applied to the live image only and the repository is
-	left modified/uncommitted for the user to review and commit themselves."
-	| blockers staleRefs applied skipped |
+GftUpdater class >> updateProject: aProject references: refs commit: shouldCommit [
+	"Like #updateProject:usingGraph:commit:, but applies exactly the given references (a
+	subset of aProject's stale outgoing refs, e.g. hand-picked by the user in the GUI) instead
+	of automatically bundling every currently-stale reference of aProject into one commit."
+	| blockers applied skipped |
 	blockers := self blockersForUpdating: aProject.
 	blockers isEmpty ifFalse: [ ^ GftUpdateResult projectName: aProject name blockers: blockers ].
-	staleRefs := aGraph staleOutgoingReferencesOf: aProject name.
-	staleRefs isEmpty ifTrue: [ ^ GftUpdateResult projectName: aProject name blockers: #() ].
+	refs isEmpty ifTrue: [ ^ GftUpdateResult projectName: aProject name blockers: #() ].
 	applied := OrderedCollection new.
 	skipped := OrderedCollection new.
-	staleRefs do: [ :ref |
+	refs do: [ :ref |
 		| newRef preview |
 		newRef := GftVersionResolver effectiveTipFor: ref targetProject.
 		newRef
@@ -86,6 +77,19 @@ GftUpdater class >> updateProject: aProject usingGraph: aGraph commit: shouldCom
 		commitId: (shouldCommit
 			ifTrue: [ aProject iceRepository commitWithMessage: (self commitMessageFor: aProject applied: applied) ]
 			ifFalse: [ nil ])
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateProject: aProject usingGraph: aGraph [
+	"Convenience: change + commit, the original v1 behaviour."
+	^ self updateProject: aProject usingGraph: aGraph commit: true
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateProject: aProject usingGraph: aGraph commit: shouldCommit [
+	"Convenience: applies ALL of aProject's currently-stale outgoing references. For picking
+	specific ones, use #updateProject:references:commit:."
+	^ self updateProject: aProject references: (aGraph staleOutgoingReferencesOf: aProject name) commit: shouldCommit
 ]
 
 { #category : 'updating' }
@@ -112,5 +116,24 @@ GftUpdater class >> updateProjects: aProjectNameCollection commit: shouldCommit 
 		shouldCommit ifFalse: [ ^ results ].
 		anyApplied := roundResults anySatisfy: [ :r | r applied isNotEmpty ].
 		anyApplied ifFalse: [ ^ results ] ].
+	^ results
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateReferences: aReferenceCollection commit: shouldCommit [
+	"Applies exactly the given references (which may belong to different owner projects),
+	one commit per owner project (if shouldCommit), containing only the selected references --
+	never the rest of that project's stale pins. This is the fine-grained entry point the GUI
+	uses so Norbert can pick exactly which pin(s) to touch instead of an all-or-nothing per
+	project (see [[Graft decisions]] -- this was reported as still too coarse even after the
+	sidebar/scope redesign: updating one project bundled in a dependency he did not want touched
+	yet). Does not cascade rounds -- each reference is applied exactly once, as picked."
+	| byProject results |
+	byProject := Dictionary new.
+	aReferenceCollection do: [ :ref |
+		(byProject at: ref ownerProjectName ifAbsentPut: [ OrderedCollection new ]) add: ref ].
+	results := OrderedCollection new.
+	byProject keysAndValuesDo: [ :projectName :refs |
+		results add: (self updateProject: (GftProject named: projectName) references: refs commit: shouldCommit) ].
 	^ results
 ]

@@ -32,15 +32,19 @@ GftDependencyReference >> isExternal [
 { #category : 'testing' }
 GftDependencyReference >> isStale [
 	"True if this is a commit-pinned reference whose pinned commit is behind the
-	target project's effective tip (local trackedRef branch if checked out there, else the
-	remote-tracked tip -- see GftVersionResolver>>effectiveTipFor:). Answers false for
-	non-commit pins and for references Graft cannot resolve a live tip for."
-	| target latest |
+	target projects effective tip (local trackedRef branch if checked out there, else the
+	remote-tracked tip -- see GftVersionResolver>>effectiveTipFor:). The pinned ref may be a
+	full 40-char SHA or an abbreviated prefix of one (e.g. gits own default 7-char form) --
+	compares via prefix match, not exact equality, so an abbreviated-but-current pin is not
+	misreported as stale. Answers false for non-commit pins and for references Graft cannot
+	resolve a live tip for."
+	| target latest pinnedRef |
 	self pinKind = #commit ifFalse: [ ^ false ].
 	target := self targetProject ifNil: [ ^ false ].
 	latest := GftVersionResolver effectiveTipFor: target.
 	latest ifNil: [ ^ false ].
-	^ latest ~= url ref
+	pinnedRef := url ref.
+	^ (latest beginsWith: pinnedRef) not
 ]
 
 { #category : 'accessing' }

@@ -6,6 +6,17 @@ Class {
 }
 
 { #category : 'tests' }
+GftRepositoryUrlTest >> testParseAbbreviatedCommitHashIsStillClassifiedAsCommit [
+	"Regression test: git often abbreviates SHAs (commonly 7-12 chars). Found 2026-07-19 in the
+	real ecosystem (BaselineOfApptiveBase>>fluxbase: pinned via the short form '90341f8') --
+	this used to be misclassified as #branch, hiding it from staleness detection entirely."
+	| url |
+	url := GftRepositoryUrl parse: 'github://ApptiveGrid/FluxBase:90341f8/source'.
+	self assert: url pinKind equals: #commit.
+	self assert: url ref equals: '90341f8'
+]
+
+{ #category : 'tests' }
 GftRepositoryUrlTest >> testParseBranchPinned [
 	| url |
 	url := GftRepositoryUrl parse: 'github://ApptiveGrid/Gossip:main/source'.
@@ -49,4 +60,17 @@ GftRepositoryUrlTest >> testParseUnpinnedFloatsOnDefaultBranch [
 	self assert: url ref isNil.
 	self assert: url pinKind equals: #none.
 	self assert: url path equals: 'source'
+]
+
+{ #category : 'tests' }
+GftRepositoryUrlTest >> testParseVeryShortHexLikeStringIsNotTreatedAsCommit [
+	"Refs shorter than 4 chars are below the minimum length Graft accepts as a plausible
+	abbreviated SHA -- treated as a branch name instead (avoids misclassifying very short branch
+	names that happen to look hex-ish, however unlikely). 4 chars and up (still all-hex) is
+	accepted as an abbreviated commit, matching gits own minimum abbreviation length."
+	| url |
+	url := GftRepositoryUrl parse: 'github://ApptiveGrid/FluxBase:abc/source'.
+	self assert: url pinKind equals: #branch.
+	url := GftRepositoryUrl parse: 'github://ApptiveGrid/FluxBase:abcd/source'.
+	self assert: url pinKind equals: #commit
 ]
