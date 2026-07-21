@@ -8,9 +8,6 @@ Class {
 		'baselineClassName',
 		'trackedRef'
 	],
-	#classVars : [
-		'KnownProjects'
-	],
 	#category : 'Graft-Core',
 	#package : 'Graft-Core'
 }
@@ -25,12 +22,13 @@ GftProject class >> buildKnownProjects [
 	derive this: origin/HEAD (a repos actual default-branch pointer) errors out via Icebergs
 	libgit2 binding in this image when resolving the symbolic ref, and the locally checked-out
 	branch is routinely some unrelated WIP branch, not the tracked one, so it cannot be inferred
-	from that either. Norbert corrected apptive-scheduler from main to development 2026-07-21
-	(Graft had wrongly insisted otherwise) -- if another entry here is wrong, it needs the same
-	kind of manual fix, see Graft doc."
+	from that either. Norbert corrected apptive-scheduler from main to development 2026-07-21,
+	and apptive-account from master to development the same day (Graft had wrongly insisted
+	otherwise both times) -- if another entry here is wrong, it needs the same kind of manual fix,
+	see Graft doc."
 	^ {
 		self name: 'apptive-base' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveBase' trackedRef: 'development'.
-		self name: 'apptive-account' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveAccount' trackedRef: 'master'.
+		self name: 'apptive-account' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveAccount' trackedRef: 'development'.
 		self name: 'apptive-common' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveCommon' trackedRef: 'main'.
 		self name: 'apptive-scheduler' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveScheduler' trackedRef: 'development'.
 		self name: 'apptivescript' host: #bitbucket owner: '2denker' baselineClassName: 'BaselineOfApptiveScript' trackedRef: 'master'.
@@ -47,8 +45,12 @@ GftProject class >> buildKnownProjects [
 
 { #category : 'known projects' }
 GftProject class >> knownProjects [
-	"Cached registry of all ApptiveGrid-owned projects Graft v1 manages. See #buildKnownProjects."
-	^ KnownProjects ifNil: [ KnownProjects := self buildKnownProjects ]
+	"Registry of all ApptiveGrid-owned projects Graft v1 manages. See #buildKnownProjects.
+	Deliberately uncached (Norbert, 2026-07-21): buildKnownProjects only constructs 13 plain
+	value objects, no repo/network access, so caching bought nothing but let a manually
+	corrected trackedRef (e.g. apptive-scheduler main->development) silently keep serving
+	stale data to a session that had already called this before the fix was loaded."
+	^ self buildKnownProjects
 ]
 
 { #category : 'instance creation' }
@@ -75,12 +77,6 @@ GftProject class >> projectForOwner: anOwner repo: aRepoName [
 	^ self knownProjects
 		detect: [ :p | (p owner sameAs: anOwner) and: [ p name sameAs: aRepoName ] ]
 		ifNone: [ nil ]
-]
-
-{ #category : 'known projects' }
-GftProject class >> resetKnownProjects [
-	"Testing/dev hook: force a rebuild of the known-projects registry."
-	KnownProjects := nil
 ]
 
 { #category : 'comparing' }
