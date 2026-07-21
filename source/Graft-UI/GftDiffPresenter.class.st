@@ -3,8 +3,7 @@ Class {
 	#superclass : 'SpPresenter',
 	#instVars : [
 		'changesList',
-		'oldCodeText',
-		'newCodeText'
+		'diffView'
 	],
 	#category : 'Graft-UI',
 	#package : 'Graft-UI'
@@ -39,20 +38,6 @@ GftDiffPresenter >> connectPresenters [
 
 { #category : 'layout' }
 GftDiffPresenter >> defaultLayout [
-	| codePanes |
-	codePanes := SpPanedLayout newLeftToRight
-		positionOfSlider: 50 percent;
-		add: (SpBoxLayout newTopToBottom
-			spacing: 4; borderWidth: 4;
-			add: 'Alt' expand: false;
-			add: oldCodeText expand: true;
-			yourself);
-		add: (SpBoxLayout newTopToBottom
-			spacing: 4; borderWidth: 4;
-			add: 'Neu' expand: false;
-			add: newCodeText expand: true;
-			yourself);
-		yourself.
 	^ SpPanedLayout newLeftToRight
 		positionOfSlider: 25 percent;
 		add: (SpBoxLayout newTopToBottom
@@ -60,7 +45,7 @@ GftDiffPresenter >> defaultLayout [
 			add: 'Änderungen' expand: false;
 			add: changesList expand: true;
 			yourself);
-		add: codePanes;
+		add: diffView;
 		yourself
 ]
 
@@ -68,19 +53,20 @@ GftDiffPresenter >> defaultLayout [
 GftDiffPresenter >> initializePresenters [
 	changesList := self newList.
 	changesList display: [ :node | (GftDiffFormatter labelFor: node), (GftDiffFormatter pathFor: node) ].
-	oldCodeText := self newCode.
-	oldCodeText beNotEditable.
-	newCodeText := self newCode.
-	newCodeText beNotEditable
+	diffView := self newDiff.
+	diffView
+		leftLabel: 'Alt';
+		rightLabel: 'Neu'
 ]
 
 { #category : 'actions' }
 GftDiffPresenter >> showNode: aNode [
 	aNode
-		ifNil: [ oldCodeText text: ''. newCodeText text: '' ]
+		ifNil: [ diffView leftText: ''; rightText: '' ]
 		ifNotNil: [
-			oldCodeText text: aNode value leftContents.
-			newCodeText text: aNode value rightContents ]
+			diffView
+				leftText: aNode value leftContents;
+				rightText: aNode value rightContents ]
 ]
 
 { #category : 'accessing' }
