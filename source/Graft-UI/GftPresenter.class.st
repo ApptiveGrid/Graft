@@ -119,6 +119,13 @@ GftPresenter >> defaultLayout [
 		yourself
 ]
 
+{ #category : 'actions' }
+GftPresenter >> generateUpdateBranchName [
+	| now |
+	now := DateAndTime now.
+	^ 'graft/update-', now year printString, (now month printPaddedWith: $0 to: 2), (now dayOfMonth printPaddedWith: $0 to: 2), '-', (now hour printPaddedWith: $0 to: 2), (now minute printPaddedWith: $0 to: 2), (now second printPaddedWith: $0 to: 2)
+]
+
 { #category : 'initialization' }
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
@@ -178,6 +185,25 @@ GftPresenter >> initializePresenters [
 ]
 
 { #category : 'actions' }
+GftPresenter >> offerBranchSwitchFor: aCollectionOfProjectNames [
+	"For every project among aCollectionOfProjectNames that is not on its tracked branch
+	(GftUpdater class>>needsBranchDecision:), asks once whether to create/switch to a fresh
+	branch for this update instead. All projects that say yes share the same generated branch
+	name (one per Aktualisieren click), so a coordinated multi-repo bump lands on
+	same-named branches. Declining leaves that project checked out as-is."
+	| branchName |
+	branchName := nil.
+	aCollectionOfProjectNames do: [ :name |
+		| proj |
+		proj := GftProject named: name.
+		(GftUpdater needsBranchDecision: proj) ifTrue: [
+			(self confirm: proj name, ' steht auf Branch ''', (GftUpdater currentBranchDescriptionFor: proj), ''', nicht auf dem getrackten ''', proj trackedRef, '''. Neuen Branch für dieses Update anlegen und dorthin wechseln?')
+				ifTrue: [
+					branchName ifNil: [ branchName := self generateUpdateBranchName ].
+					GftUpdater switchToUpdateBranch: branchName for: proj ] ] ]
+]
+
+{ #category : 'actions' }
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
@@ -189,13 +215,14 @@ GftPresenter >> openCustomPicker [
 { #category : 'actions' }
 GftPresenter >> performUpdate [
 	"Applies exactly the rows currently checked/selected in the 'Ausgewählte Pins'-Tabelle --
-	not automatically every stale pin of a project. This is the fix for Norbert reporting that
-	updating one project bundled in a dependency (FluxBase) he did not want touched yet: the
-	table lists every currently-stale pin in scope, pre-selected, and he can deselect any of them
-	before clicking this button. commitCheckbox controls whether this only rewrites the affected
-	BaselineOf method(s) in the live image (left uncommitted) or also commits locally, one commit
-	per owner project -- see GftUpdater class>>updateReferences:commit:. Never pushes."
-	| chosen commit preview results summary |
+	not automatically every stale pin of a project. commitCheckbox controls whether this only
+	rewrites the affected BaselineOf method(s) in the live image (left uncommitted) or also
+	commits locally, one commit per owner project -- see GftUpdater class>>updateReferences:
+	commit:. Never pushes. Before applying, asks separately for every involved project that is
+	not on its tracked branch whether to create/switch to a fresh update branch instead of
+	insisting on the tracked ref (see #offerBranchSwitchFor:) -- declining just proceeds on
+	whatever is currently checked out."
+	| chosen commit preview results summary ownerProjectNames |
 	chosen := staleRefsTable selectedItems asOrderedCollection.
 	chosen isEmpty ifTrue: [ ^ self inform: 'Keine Pins ausgewählt (Tabelle unten rechts).' ].
 	commit := commitCheckbox state.
@@ -210,6 +237,8 @@ GftPresenter >> performUpdate [
 		ifTrue: [ chosen size printString, ' ausgewählte Pin(s) jetzt ändern UND lokal committen (kein Push)?' ]
 		ifFalse: [ chosen size printString, ' ausgewählte Pin(s) nur im Code ändern, NICHT committen?' ]))
 		ifFalse: [ ^ self ].
+	ownerProjectNames := (chosen collect: [ :r | r ownerProjectName ]) asSet.
+	self offerBranchSwitchFor: ownerProjectNames.
 	results := GftUpdater updateReferences: chosen commit: commit.
 	summary := String new writeStream.
 	results do: [ :r | summary nextPutAll: r summary; cr; cr ].

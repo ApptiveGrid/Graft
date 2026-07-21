@@ -22,19 +22,6 @@ GftUpdaterTest >> testBlockersDoNotFlagOwnBaselinePackageBeingModified [
 ]
 
 { #category : 'tests' }
-GftUpdaterTest >> testBlockersFlagBranchMismatch [
-	"Read-only check: whenever a known project's repo is not on its tracked branch, blockers
-	must be non-empty. Deliberately does not hardcode which projects are affected -- branch
-	state changes over time -- only the invariant."
-	GftProject knownProjects do: [ :p |
-		| repo |
-		repo := p iceRepository.
-		repo ifNotNil: [
-			(repo head isBranch and: [ repo branchName = p trackedRef ])
-				ifFalse: [ self assert: (GftUpdater blockersForUpdating: p) isNotEmpty ] ] ]
-]
-
-{ #category : 'tests' }
 GftUpdaterTest >> testBlockersFlagUnrelatedModifiedPackages [
 	"Being modified in some OTHER package (not the project own BaselineOf) must still block --
 	this is the real safety net against bundling unrelated WIP into a Graft commit."
@@ -45,6 +32,31 @@ GftUpdaterTest >> testBlockersFlagUnrelatedModifiedPackages [
 			otherDirty := repo modifiedPackages reject: [ :pkg | pkg name = p baselineClassName ].
 			otherDirty isEmpty ifFalse: [
 				self assert: (GftUpdater blockersForUpdating: p) isNotEmpty ] ] ]
+]
+
+{ #category : 'tests' }
+GftUpdaterTest >> testCurrentBranchDescriptionForDetachedHead [
+	GftProject knownProjects do: [ :p |
+		| repo |
+		repo := p iceRepository.
+		(repo notNil and: [ repo head isBranch not ]) ifTrue: [
+			self assert: (GftUpdater currentBranchDescriptionFor: p) equals: 'losgelöst (detached HEAD)' ] ]
+]
+
+{ #category : 'tests' }
+GftUpdaterTest >> testNeedsBranchDecisionMatchesActualBranchState [
+	"Read-only check: needsBranchDecision: is true exactly when the repo is not on its tracked
+	branch (or detached) -- and, since branch mismatch is no longer a hard blocker (2026-07-21),
+	blockersForUpdating: must NOT flag it by itself anymore."
+	GftProject knownProjects do: [ :p |
+		| repo onTrackedBranch |
+		repo := p iceRepository.
+		repo ifNotNil: [
+			onTrackedBranch := repo head isBranch and: [ repo branchName = p trackedRef ].
+			self assert: (GftUpdater needsBranchDecision: p) equals: onTrackedBranch not.
+			onTrackedBranch ifFalse: [
+				(GftUpdater blockersForUpdating: p) do: [ :b |
+					self deny: (b includesSubstring: 'Branch') ] ] ] ]
 ]
 
 { #category : 'tests' }

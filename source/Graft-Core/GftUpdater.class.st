@@ -7,30 +7,26 @@ Class {
 
 { #category : 'safety' }
 GftUpdater class >> blockersForUpdating: aProject [
-	"Safety preconditions that must hold before Graft touches aProject's repository at all:
-	it must be on its tracked branch (not detached, not some other WIP branch) and have no
-	pre-existing uncommitted changes UNRELATED to its own BaselineOf package. Several of the
-	real repos in this ecosystem are routinely checked out on feature branches or have
-	unrelated local edits in progress (verified 2026-07-19), and Graft must never fold those
-	into its own commit or commit onto the wrong branch.
+	"Hard safety preconditions that must hold before Graft touches aProject's repository at
+	all: it must have no pre-existing uncommitted changes UNRELATED to its own BaselineOf
+	package. Several of the real repos in this ecosystem routinely have unrelated local edits
+	in progress (verified 2026-07-19), and Graft must never fold those into its own commit.
 
 	Deliberately does NOT block just because the repository is modified at all: Graft's own
 	previous change-only edit (commit checkbox off, see Graft decisions) leaves the BaselineOf
-	package dirty on purpose, so a second single-pin update on the same project can build on
-	it -- blocking that would defeat the whole point of change-only mode (found 2026-07-20:
-	Norbert reported the first of several sequential single-project updates working and the
-	second failing purely because the first had left the project modified). Only a dirty
-	package OTHER than the project's own BaselineOf package is treated as unrelated,
-	pre-existing work Graft must not touch."
+	package dirty on purpose, so a second single-pin update on the same project can build on it.
+	Only a dirty package OTHER than the project's own BaselineOf package is treated as
+	unrelated, pre-existing work Graft must not touch.
+
+	Being on the wrong branch (or detached HEAD) is deliberately NOT a hard blocker here either
+	anymore (Norbert 2026-07-21: he often wants a dependency-bump update on its own branch
+	rather than Graft insisting on the tracked ref) -- see #needsBranchDecision:/
+	#switchToUpdateBranch:for:, which the GUI uses to ask before proceeding on an unexpected
+	branch, instead of silently committing there or refusing outright."
 	| repo blockers baselinePackageName otherModifiedPackages |
 	blockers := OrderedCollection new.
 	repo := aProject iceRepository.
 	repo ifNil: [ blockers add: 'Kein Iceberg-Repository registriert.'. ^ blockers ].
-	repo head isBranch
-		ifFalse: [ blockers add: 'Repository steht auf einem losgelösten Commit (detached HEAD), nicht auf einem Branch.' ]
-		ifTrue: [
-			repo branchName = aProject trackedRef ifFalse: [
-				blockers add: 'Repository steht auf Branch ''', repo branchName, ''', nicht auf dem getrackten Branch ''', aProject trackedRef, '''.' ] ].
 	baselinePackageName := aProject baselineClassName.
 	otherModifiedPackages := repo modifiedPackages reject: [ :pkg | pkg name = baselinePackageName ].
 	otherModifiedPackages isEmpty ifFalse: [
@@ -49,6 +45,41 @@ GftUpdater class >> commitMessageFor: aProject applied: appliedAssocs [
 	appliedAssocs do: [ :a | stream nextPutAll: '- ', a key, ' -> ', a value; cr ].
 	stream cr; nextPutAll: 'Applied by Graft.'.
 	^ stream contents
+]
+
+{ #category : 'safety' }
+GftUpdater class >> currentBranchDescriptionFor: aProject [
+	| repo |
+	repo := aProject iceRepository.
+	repo ifNil: [ ^ '(kein Repository)' ].
+	^ repo head isBranch
+		ifTrue: [ repo branchName ]
+		ifFalse: [ 'losgelöst (detached HEAD)' ]
+]
+
+{ #category : 'safety' }
+GftUpdater class >> needsBranchDecision: aProject [
+	"True if the repository is not on its tracked branch (a different branch, or detached
+	HEAD) -- Graft can still proceed (see switchToUpdateBranch:for:), but the GUI should ask
+	first rather than silently committing onto some unrelated branch."
+	| repo |
+	repo := aProject iceRepository.
+	repo ifNil: [ ^ false ].
+	repo head isBranch ifFalse: [ ^ true ].
+	^ repo branchName ~= aProject trackedRef
+]
+
+{ #category : 'safety' }
+GftUpdater class >> switchToUpdateBranch: aBranchName for: aProject [
+	"Creates (from the repositorys current HEAD, keeping any working-copy state as-is) or,
+	if it already exists locally, just switches to aBranchName. Used after the GUI has asked
+	and Norbert confirmed putting a dependency-bump update on its own branch rather than
+	whatever was checked out (see needsBranchDecision:)."
+	| repo |
+	repo := aProject iceRepository.
+	(repo hasLocalBranchNamed: aBranchName)
+		ifTrue: [ repo switchToBranchNamed: aBranchName ]
+		ifFalse: [ repo createBranch: aBranchName ]
 ]
 
 { #category : 'updating' }
