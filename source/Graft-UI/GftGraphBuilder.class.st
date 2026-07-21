@@ -17,25 +17,18 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 	Status/staleness is still computed against the full aGraph, so filtering the view never changes
 	what counts as stale. See class comment on #canvasFor:onSelect: for the rest."
 
-	| canvas boxes knownToKnownRefs edgesByKind layout shownNames |
+	| canvas boxes knownToKnownRefs edgesByKey shownNames layout |
 	canvas := RSCanvas new.
 	shownNames := projectsToShow collect: [ :p | p name ].
 	boxes := projectsToShow
 		         collect: [ :proj |
-				         | composite hasStaleDependents |
-				         hasStaleDependents := aGraph hasStaleDependents:
-					                               proj name.
+				         | composite |
 				         composite := RSComposite new.
 				         composite add: (RSBox new
 						          extent: 130 @ 40;
 						          color: (self colorFor: proj name usingGraph: aGraph);
 						          border: (RSBorder new
-								           color: (hasStaleDependents
-										            ifTrue: [ Color blue ]
-										            ifFalse: [ Color black ]);
-								           width: (hasStaleDependents
-										            ifTrue: [ 3 ]
-										            ifFalse: [ 1 ]);
+								           color: Color black;
 								           yourself);
 						          yourself).
 				         composite add: (RSLabel new
@@ -60,24 +53,25 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 						                    or: [
 						                    (shownNames includes: r targetProject name)
 							                    not ] ] ].
-	edgesByKind := Dictionary new.
+	edgesByKey := Dictionary new.
 	knownToKnownRefs do: [ :r |
-			(edgesByKind at: r pinKind ifAbsentPut: [ OrderedCollection new ])
-				add: r ].
-	#( #commit #branch #none ) do: [ :kind |
-			| refsOfKind assocs builder |
-			refsOfKind := edgesByKind at: kind ifAbsent: [ #(  ) ].
-			refsOfKind isEmpty ifFalse: [
-					assocs := refsOfKind collect: [ :r |
+			(edgesByKey
+				 at: (self displayKeyFor: r)
+				 ifAbsentPut: [ OrderedCollection new ]) add: r ].
+	#( #stale #commit #branch #none ) do: [ :key |
+			| refsOfKey assocs builder |
+			refsOfKey := edgesByKey at: key ifAbsent: [ #(  ) ].
+			refsOfKey isEmpty ifFalse: [
+					assocs := refsOfKey collect: [ :r |
 						          (GftProject named: r ownerProjectName)
 						          -> r targetProject ].
 					builder := RSEdgeBuilder arrowedLine
 						           canvas: canvas;
 						           withBorderAttachPoint;
-						           color: (self colorForPinKind: kind);
+						           color: (self colorForReference: refsOfKey first);
 						           moveBehind;
 						           yourself.
-					kind = #branch ifTrue: [ builder dashed ].
+					key = #branch ifTrue: [ builder dashed ].
 					builder useAssociations: assocs ] ].
 	layout := RSSugiyamaLayout new.
 	layout horizontalGap: 50.
@@ -89,10 +83,17 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 
 { #category : 'colors' }
 GftGraphBuilder class >> colorFor: aProjectName usingGraph: aGraph [
-	(aGraph statusOf: aProjectName) caseOf: {
-		[ #stale ] -> [ ^ Color orange ].
-		[ #upToDate ] -> [ ^ Color lightGreen ].
-		[ #neutral ] -> [ ^ Color veryLightGray ] }
+	"Node fill color is purely about propagation: yellow if this project has shipped something
+	that not every dependent has picked up yet (GftDependencyGraph>>hasStaleDependents:), gray
+	otherwise -- including leaf/root projects with no dependents at all. Deliberately does not
+	reflect whether this project itself needs to pull in an update from ITS OWN dependencies
+	(GftDependencyGraph>>statusOf:/staleOutgoingReferencesOf: still answer that; it shows in the
+	Veraltete-Pins-Tabelle when the project is selected, just not as a third graph color anymore --
+	Norbert simplified this 2026-07-20 to gray/yellow only, one clear question per node: does
+	something downstream still need to catch up to me?)."
+	^ (aGraph hasStaleDependents: aProjectName)
+		ifTrue: [ Color yellow ]
+		ifFalse: [ Color veryLightGray ]
 ]
 
 { #category : 'colors' }
@@ -101,4 +102,22 @@ GftGraphBuilder class >> colorForPinKind: aSymbol [
 		[ #commit ] -> [ ^ Color black ].
 		[ #branch ] -> [ ^ Color gray ].
 		[ #none ] -> [ ^ Color veryLightGray darker ] }
+]
+
+{ #category : 'colors' }
+GftGraphBuilder class >> colorForReference: aReference [
+	"An individual edges color: yellow if this specific pin is stale (so you can see directly
+	which dependent is the one lagging behind, not just that the target has some lagging
+	dependent somewhere) -- otherwise the plain pin-kind color."
+	aReference isStale ifTrue: [ ^ Color yellow ].
+	^ self colorForPinKind: aReference pinKind
+]
+
+{ #category : 'colors' }
+GftGraphBuilder class >> displayKeyFor: aReference [
+	"Grouping key for edge styling: #stale for any currently-stale commit pin (drawn yellow,
+	regardless of pin kind -- staleness only applies to #commit pins anyway), otherwise the
+	plain pin kind."
+	aReference isStale ifTrue: [ ^ #stale ].
+	^ aReference pinKind
 ]
