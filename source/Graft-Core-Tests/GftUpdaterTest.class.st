@@ -35,6 +35,20 @@ GftUpdaterTest >> testBlockersFlagUnrelatedModifiedPackages [
 ]
 
 { #category : 'tests' }
+GftUpdaterTest >> testBlockersIgnoringUnrelatedChangesSuppressesThatBlocker [
+	"Read-only: find a project that currently has real unrelated dirty packages (verified
+	2026-07-19/21 to exist in this ecosystem) and confirm the ignore flag suppresses exactly
+	that blocker, without touching anything."
+	| dirtyProject |
+	dirtyProject := GftProject knownProjects
+		detect: [ :p | (GftUpdater unrelatedModifiedPackagesFor: p) isNotEmpty ]
+		ifNone: [ nil ].
+	dirtyProject ifNotNil: [
+		self assert: ((GftUpdater blockersForUpdating: dirtyProject) anySatisfy: [ :b | b includesSubstring: 'unabhängige' ]).
+		self deny: ((GftUpdater blockersForUpdating: dirtyProject ignoringUnrelatedChanges: true) anySatisfy: [ :b | b includesSubstring: 'unabhängige' ]) ]
+]
+
+{ #category : 'tests' }
 GftUpdaterTest >> testCurrentBranchDescriptionForDetachedHead [
 	GftProject knownProjects do: [ :p |
 		| repo |
@@ -97,6 +111,23 @@ GftUpdaterTest >> testUpdateProjectNeverTouchesABlockedProject [
 			self assert: result isBlocked.
 			self assert: result commitId isNil.
 			self assert: result applied isEmpty ] ]
+]
+
+{ #category : 'tests' }
+GftUpdaterTest >> testUpdateProjectWithIgnoreFlagAndNoRefsNeverMutatesAnything [
+	"Safe even on a project with real unrelated dirty packages: passing an empty reference
+	list means nothing is ever compiled or committed regardless of the ignore flag, so this
+	is safe to run against any currently-dirty project as a real integration check of the
+	ignoringUnrelatedChanges: plumbing actually reaching past the old hard block."
+	| dirtyProject result |
+	dirtyProject := GftProject knownProjects
+		detect: [ :p | (GftUpdater unrelatedModifiedPackagesFor: p) isNotEmpty ]
+		ifNone: [ nil ].
+	dirtyProject ifNotNil: [
+		result := GftUpdater updateProject: dirtyProject references: #() commit: false ignoringUnrelatedChanges: true.
+		self deny: result isBlocked.
+		self assert: result applied isEmpty.
+		self assert: result commitId isNil ]
 ]
 
 { #category : 'tests' }

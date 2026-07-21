@@ -7,32 +7,39 @@ Class {
 
 { #category : 'safety' }
 GftUpdater class >> blockersForUpdating: aProject [
-	"Hard safety preconditions that must hold before Graft touches aProject's repository at
+	^ self blockersForUpdating: aProject ignoringUnrelatedChanges: false
+]
+
+{ #category : 'safety' }
+GftUpdater class >> blockersForUpdating: aProject ignoringUnrelatedChanges: shouldIgnore [
+	"Hard safety preconditions that must hold before Graft touches aProjects repository at
 	all: it must have no pre-existing uncommitted changes UNRELATED to its own BaselineOf
-	package. Several of the real repos in this ecosystem routinely have unrelated local edits
-	in progress (verified 2026-07-19), and Graft must never fold those into its own commit.
+	package -- UNLESS shouldIgnore is true, meaning the GUI already asked and Norbert
+	confirmed committing alongside that other WIP anyway (see GftPresenter>>
+	offerIgnoreUnrelatedChangesFor:, added 2026-07-21: he sometimes wants to bundle a
+	dependency-bump commit together with other in-progress work he already has sitting in the
+	same repo, optionally on a fresh branch via offerBranchSwitchFor: first, rather than being
+	refused outright). Several of the real repos in this ecosystem routinely have unrelated
+	local edits in progress (verified 2026-07-19) -- shouldIgnore defaults to false everywhere
+	except that one explicit, interactive path, so Graft never bundles unrelated WIP into a
+	commit by accident.
 
 	Deliberately does NOT block just because the repository is modified at all: Graft's own
 	previous change-only edit (commit checkbox off, see Graft decisions) leaves the BaselineOf
 	package dirty on purpose, so a second single-pin update on the same project can build on it.
-	Only a dirty package OTHER than the project's own BaselineOf package is treated as
-	unrelated, pre-existing work Graft must not touch.
 
-	Being on the wrong branch (or detached HEAD) is deliberately NOT a hard blocker here either
-	anymore (Norbert 2026-07-21: he often wants a dependency-bump update on its own branch
-	rather than Graft insisting on the tracked ref) -- see #needsBranchDecision:/
-	#switchToUpdateBranch:for:, which the GUI uses to ask before proceeding on an unexpected
-	branch, instead of silently committing there or refusing outright."
-	| repo blockers baselinePackageName otherModifiedPackages |
+	Being on the wrong branch (or detached HEAD) is not a hard blocker here either -- see
+	#needsBranchDecision:/#switchToUpdateBranch:for:."
+	| repo blockers otherModifiedPackages |
 	blockers := OrderedCollection new.
 	repo := aProject iceRepository.
 	repo ifNil: [ blockers add: 'Kein Iceberg-Repository registriert.'. ^ blockers ].
-	baselinePackageName := aProject baselineClassName.
-	otherModifiedPackages := repo modifiedPackages reject: [ :pkg | pkg name = baselinePackageName ].
-	otherModifiedPackages isEmpty ifFalse: [
-		blockers add: 'Repository hat bereits unabhängige, nicht committete Änderungen in: ',
-			((otherModifiedPackages collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]),
-			' -- Graft fasst das nicht an.' ].
+	shouldIgnore ifFalse: [
+		otherModifiedPackages := self unrelatedModifiedPackagesFor: aProject.
+		otherModifiedPackages isEmpty ifFalse: [
+			blockers add: 'Repository hat bereits unabhängige, nicht committete Änderungen in: ',
+				((otherModifiedPackages collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]),
+				' -- Graft fasst das nicht an.' ] ].
 	^ blockers
 ]
 
@@ -82,6 +89,18 @@ GftUpdater class >> switchToUpdateBranch: aBranchName for: aProject [
 		ifFalse: [ repo createBranch: aBranchName ]
 ]
 
+{ #category : 'safety' }
+GftUpdater class >> unrelatedModifiedPackagesFor: aProject [
+	"Modified packages in aProjects repository other than its own BaselineOf package -- the
+	pre-existing, Graft-unrelated WIP that #blockersForUpdating: normally refuses to touch.
+	Answers an empty collection if there is no repository or nothing unrelated is dirty."
+	| repo baselinePackageName |
+	repo := aProject iceRepository.
+	repo ifNil: [ ^ #() ].
+	baselinePackageName := aProject baselineClassName.
+	^ repo modifiedPackages reject: [ :pkg | pkg name = baselinePackageName ]
+]
+
 { #category : 'updating' }
 GftUpdater class >> updateAll [
 	^ self updateProjects: (GftProject knownProjects collect: [ :p | p name ]) commit: true
@@ -89,11 +108,19 @@ GftUpdater class >> updateAll [
 
 { #category : 'updating' }
 GftUpdater class >> updateProject: aProject references: refs commit: shouldCommit [
+	^ self updateProject: aProject references: refs commit: shouldCommit ignoringUnrelatedChanges: false
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateProject: aProject references: refs commit: shouldCommit ignoringUnrelatedChanges: shouldIgnore [
 	"Like #updateProject:usingGraph:commit:, but applies exactly the given references (a
-	subset of aProject's stale outgoing refs, e.g. hand-picked by the user in the GUI) instead
-	of automatically bundling every currently-stale reference of aProject into one commit."
+	subset of aProjects stale outgoing refs, e.g. hand-picked by the user in the GUI) instead
+	of automatically bundling every currently-stale reference of aProject into one commit.
+	shouldIgnore: see blockersForUpdating:ignoringUnrelatedChanges: -- if true, a commit here
+	will bundle in whatever other unrelated changes are already sitting in the repo, because
+	the GUI already asked and Norbert confirmed that."
 	| blockers applied skipped |
-	blockers := self blockersForUpdating: aProject.
+	blockers := self blockersForUpdating: aProject ignoringUnrelatedChanges: shouldIgnore.
 	blockers isEmpty ifFalse: [ ^ GftUpdateResult projectName: aProject name blockers: blockers ].
 	refs isEmpty ifTrue: [ ^ GftUpdateResult projectName: aProject name blockers: #() ].
 	applied := OrderedCollection new.
@@ -165,19 +192,27 @@ GftUpdater class >> updateProjects: aProjectNameCollection commit: shouldCommit 
 
 { #category : 'updating' }
 GftUpdater class >> updateReferences: aReferenceCollection commit: shouldCommit [
+	^ self updateReferences: aReferenceCollection commit: shouldCommit ignoringUnrelatedChanges: false
+]
+
+{ #category : 'updating' }
+GftUpdater class >> updateReferences: aReferenceCollection commit: shouldCommit ignoringUnrelatedChanges: shouldIgnore [
 	"Applies exactly the given references (which may belong to different owner projects),
 	one commit per owner project (if shouldCommit), containing only the selected references --
-	never the rest of that project's stale pins. This is the fine-grained entry point the GUI
-	uses so Norbert can pick exactly which pin(s) to touch instead of an all-or-nothing per
-	project (see [[Graft decisions]] -- this was reported as still too coarse even after the
-	sidebar/scope redesign: updating one project bundled in a dependency he did not want touched
-	yet). Does not cascade rounds -- each reference is applied exactly once, as picked."
+	never the rest of that project's stale pins, unless shouldIgnore is true (see
+	blockersForUpdating:ignoringUnrelatedChanges:), in which case whatever else is already
+	dirty in a given project gets bundled into that projects commit too. Does not cascade
+	rounds -- each reference is applied exactly once, as picked."
 	| byProject results |
 	byProject := Dictionary new.
 	aReferenceCollection do: [ :ref |
 		(byProject at: ref ownerProjectName ifAbsentPut: [ OrderedCollection new ]) add: ref ].
 	results := OrderedCollection new.
 	byProject keysAndValuesDo: [ :projectName :refs |
-		results add: (self updateProject: (GftProject named: projectName) references: refs commit: shouldCommit) ].
+		results add: (self
+			updateProject: (GftProject named: projectName)
+			references: refs
+			commit: shouldCommit
+			ignoringUnrelatedChanges: shouldIgnore) ].
 	^ results
 ]

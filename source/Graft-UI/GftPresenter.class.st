@@ -204,6 +204,31 @@ GftPresenter >> offerBranchSwitchFor: aCollectionOfProjectNames [
 ]
 
 { #category : 'actions' }
+GftPresenter >> offerIgnoreUnrelatedChangesFor: aCollectionOfProjectNames [
+	"If any project among aCollectionOfProjectNames already has unrelated uncommitted changes
+	(GftUpdater class>>unrelatedModifiedPackagesFor:), lists them and asks once whether to
+	bundle them into this update anyway instead of refusing outright (Norbert 2026-07-21:
+	sometimes wants to commit a dependency-bump together with other in-progress work already
+	sitting in the same repo -- combine with #offerBranchSwitchFor: first if that other work
+	should land on its own branch rather than whatever was checked out). Answers whether the
+	caller should pass ignoringUnrelatedChanges: true to GftUpdater."
+	| affected description |
+	affected := aCollectionOfProjectNames select: [ :name |
+		(GftUpdater unrelatedModifiedPackagesFor: (GftProject named: name)) isNotEmpty ].
+	affected isEmpty ifTrue: [ ^ false ].
+	description := String new writeStream.
+	affected do: [ :name |
+		| pkgs |
+		pkgs := GftUpdater unrelatedModifiedPackagesFor: (GftProject named: name).
+		description
+			nextPutAll: name, ': ', ((pkgs collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]);
+			cr ].
+	^ self confirm: 'Folgende Projekte haben bereits unabhängige, nicht committete Änderungen:'
+		, (String with: Character cr), description contents
+		, 'Trotzdem zusammen mit dem Dependency-Update committen?'
+]
+
+{ #category : 'actions' }
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
@@ -218,11 +243,13 @@ GftPresenter >> performUpdate [
 	not automatically every stale pin of a project. commitCheckbox controls whether this only
 	rewrites the affected BaselineOf method(s) in the live image (left uncommitted) or also
 	commits locally, one commit per owner project -- see GftUpdater class>>updateReferences:
-	commit:. Never pushes. Before applying, asks separately for every involved project that is
-	not on its tracked branch whether to create/switch to a fresh update branch instead of
-	insisting on the tracked ref (see #offerBranchSwitchFor:) -- declining just proceeds on
-	whatever is currently checked out."
-	| chosen commit preview results summary ownerProjectNames |
+	commit:ignoringUnrelatedChanges:. Never pushes. Before applying, asks separately for every
+	involved project that is not on its tracked branch whether to create/switch to a fresh
+	update branch instead of insisting on the tracked ref (see #offerBranchSwitchFor:), and for
+	every involved project that already has unrelated uncommitted changes whether to bundle
+	them in anyway rather than refusing outright (see #offerIgnoreUnrelatedChangesFor:) --
+	declining either just proceeds as before (current branch / still blocked, respectively)."
+	| chosen commit preview results summary ownerProjectNames ignoreUnrelated |
 	chosen := staleRefsTable selectedItems asOrderedCollection.
 	chosen isEmpty ifTrue: [ ^ self inform: 'Keine Pins ausgewählt (Tabelle unten rechts).' ].
 	commit := commitCheckbox state.
@@ -239,7 +266,8 @@ GftPresenter >> performUpdate [
 		ifFalse: [ ^ self ].
 	ownerProjectNames := (chosen collect: [ :r | r ownerProjectName ]) asSet.
 	self offerBranchSwitchFor: ownerProjectNames.
-	results := GftUpdater updateReferences: chosen commit: commit.
+	ignoreUnrelated := self offerIgnoreUnrelatedChangesFor: ownerProjectNames.
+	results := GftUpdater updateReferences: chosen commit: commit ignoringUnrelatedChanges: ignoreUnrelated.
 	summary := String new writeStream.
 	results do: [ :r | summary nextPutAll: r summary; cr; cr ].
 	planText text: summary contents.
