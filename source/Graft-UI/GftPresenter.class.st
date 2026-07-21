@@ -26,6 +26,19 @@ GftPresenter class >> defaultPreferredExtent [
 	^ 1150@780
 ]
 
+{ #category : 'menu' }
+GftPresenter class >> menuCommandOn: aBuilder [
+	"Adds a 'Graft' entry under the Tools group in Pharos top World menu (visible whenever
+	this package is loaded), so Norbert doesnt need to evaluate GftPresenter new open by hand
+	every time he wants to check the ApptiveGrid dependency graph."
+	<worldMenu>
+	(aBuilder item: #Graft)
+		parent: #Tools;
+		action: [ self new open ];
+		order: 50;
+		help: 'Öffnet Graft: Metacello-BaselineOf-Dependency-Verwaltung über die ApptiveGrid-Projekte.'
+]
+
 { #category : 'instance creation' }
 GftPresenter class >> open [
 	^ self new open
