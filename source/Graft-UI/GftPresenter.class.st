@@ -13,6 +13,7 @@ Class {
 		'selectedLabel',
 		'planText',
 		'refreshButton',
+		'redrawButton',
 		'bumpButton',
 		'updateButton',
 		'commitCheckbox'
@@ -56,6 +57,7 @@ GftPresenter >> applyCustomSelection: chosenNames [
 		canvasFor: graph
 		projects: (chosenNames collect: [ :n | GftProject named: n ])
 		onSelect: [ :proj | self showProject: proj ]).
+	roassal refresh.
 	self refreshStaleRefsTableForScope: viewProjectNames
 ]
 
@@ -63,6 +65,7 @@ GftPresenter >> applyCustomSelection: chosenNames [
 GftPresenter >> connectPresenters [
 	projectSidebar whenSelectedItemChangedDo: [ :item | self sidebarSelected: item ].
 	refreshButton action: [ self refreshAll ].
+	redrawButton action: [ self rebuildGraphView ].
 	bumpButton action: [ self showBumpPlanForSelectedProject ].
 	updateButton action: [ self performUpdate ]
 ]
@@ -74,7 +77,14 @@ GftPresenter >> defaultLayout [
 	spacing/borderWidth for padding (Norbert 2026-07-20: the tight default layout did not look
 	good). actionsBox gives commitCheckbox expand: true (Norbert 2026-07-21: its label text ran
 	into updateButton when both sat at their natural width side by side) so the checkbox owns
-	the remaining row width and updateButton is pinned flush against the right edge."
+	the remaining row width and updateButton is pinned flush against the right edge.
+
+	redrawButton (2026-07-21) sits next to refreshButton: refreshButton does a real network
+	fetch of all known repos before rebuilding (#refreshAll), which is unnecessary and slower
+	when the change is purely local -- e.g. Norbert just committed something via Iceberg in his
+	own image and wants to see the updated graph without waiting on a fetch, or without closing
+	and reopening this whole window. redrawButton just calls #rebuildGraphView directly (no
+	fetch), which re-reads whatever is currently loaded/committed and redraws the canvas."
 	| top rightSide sidebarBox actionsBox bottomBox middlePaned outerPaned mainPaned |
 	sidebarBox := SpBoxLayout newTopToBottom
 		spacing: 6; borderWidth: 6;
@@ -84,6 +94,7 @@ GftPresenter >> defaultLayout [
 	top := SpBoxLayout newLeftToRight
 		spacing: 8; borderWidth: 8;
 		add: refreshButton expand: false;
+		add: redrawButton expand: false;
 		add: selectedLabel expand: true;
 		add: bumpButton expand: false;
 		yourself.
@@ -188,6 +199,8 @@ GftPresenter >> initializePresenters [
 			self shorten: (GftVersionResolver effectiveTipFor: r targetProject) ]).
 	refreshButton := self newButton.
 	refreshButton label: 'Refresh (fetch)'.
+	redrawButton := self newButton.
+	redrawButton label: 'Neu zeichnen'.
 	bumpButton := self newButton.
 	bumpButton label: 'Bump-Plan berechnen'.
 	commitCheckbox := self newCheckBox.
@@ -291,6 +304,14 @@ GftPresenter >> performUpdate [
 
 { #category : 'actions' }
 GftPresenter >> rebuildGraphView [
+	"Rebuilds the dependency graph from whatever is currently loaded/committed (no network
+	access -- see GftDependencyGraph class>>build) and redraws the Roassal canvas in place.
+	roassal refresh (2026-07-21) is required after roassal canvas: -- SpRoassalPresenter>>canvas:
+	is a bare ivar setter with no change notification; the actual on-screen repaint only fires
+	via #refresh (self changed: #applyScript with: #()), which the adapter listens for. Without
+	it the Morph kept showing the OLD canvas even though graph/roassal canvas were already
+	rebuilt in memory -- e.g. after committing something via Iceberg, the graph looked unchanged
+	until the whole GftPresenter window was closed and reopened."
 	graph := GftDependencyGraph build.
 	roassal canvas: (viewProjectNames size = GftProject knownProjects size
 		ifTrue: [ GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ] ]
@@ -298,6 +319,7 @@ GftPresenter >> rebuildGraphView [
 			canvasFor: graph
 			projects: (viewProjectNames collect: [ :n | GftProject named: n ])
 			onSelect: [ :proj | self showProject: proj ] ]).
+	roassal refresh.
 	selectedProject
 		ifNotNil: [ self showProject: selectedProject ]
 		ifNil: [ self refreshStaleRefsTableForScope: viewProjectNames ]
@@ -334,6 +356,7 @@ GftPresenter >> selectAllView [
 	detailTable items: #().
 	dependentsTable items: #().
 	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	roassal refresh.
 	self refreshStaleRefsTableForScope: viewProjectNames
 ]
 
