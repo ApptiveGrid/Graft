@@ -37,94 +37,75 @@ GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aO
 	edges between two shown projects) -- used for the sidebars 'Alle'/'Custom' filtered views.
 	Status/staleness is still computed against the full aGraph, so filtering the view never changes
 	what counts as stale.
-
 	Node fill: yellow if hasStaleDependents: (someone downstream has not caught up), gray otherwise.
 	Node border: red+thick if this project itself has stale outgoing pins (staleOutgoingReferencesOf:
 	notEmpty -- it needs to pull in an update from its OWN dependencies), plain black otherwise. Both
-	can apply at once. The project name label sits directly on top of the box (both shapes default
+	can apply at once. A node whose baseline failed to parse (aGraph hasParseFailure:) also gets the
+	red+thick border and, having no parsed references, simply has no outgoing edges.
+	The project name label sits directly on top of the box (both shapes default
 	to position 0@0 in the composite, so they overlay exactly instead of being laid out as two
 	stacked shapes -- fixed 2026-07-21, RSVerticalLineLayout previously stacked box and label as two
 	separate elements instead of the name appearing inside the box).
-
-	Edges: colored per-reference (GftGraphBuilder class>>colorForReference:/displayKeyFor:), not per
-	pin-kind group -- a stale commit pin draws yellow regardless of kind. Each edge additionally
-	carries a text marker at its midpoint (GftGraphBuilder class>>edgeLabelTextFor:) showing the
-	pinned commit (short form)/branch it points at, so its visible which exact version a dependent
-	is pinned to without having to click through to the detail table."
-
-	| canvas boxes knownToKnownRefs edgesByKey shownNames layout |
+	One arrowed edge is drawn per dependency reference (color per reference via #colorForReference:,
+	dashed for a plain #branch pin, a short commit/branch marker at its midpoint via
+	#edgeLabelTextFor:). Built one reference at a time on purpose: two references between the same
+	owner/target pair (e.g. a project depending on another via two package specs) are two distinct
+	edges, whereas batching them through RSEdgeBuilder>>useAssociations: collapsed duplicate pairs
+	and desynchronised the edge/label zip (crash on a graph with such duplicates)."
+	| canvas boxes shownNames layout |
 	canvas := RSCanvas new.
 	shownNames := projectsToShow collect: [ :p | p name ].
 	boxes := projectsToShow
-		         collect: [ :proj |
-				         | composite hasOwnStale |
-				         hasOwnStale := (aGraph staleOutgoingReferencesOf:
-					                         proj name) isNotEmpty.
-				         composite := RSComposite new.
-				         composite add: (RSBox new
-						          extent: 130 @ 40;
-						          color: (self colorFor: proj name usingGraph: aGraph);
-						          border: (RSBorder new
-								           color: (hasOwnStale
-										            ifTrue: [ Color red ]
-										            ifFalse: [ Color black ]);
-								           width: (hasOwnStale
-										            ifTrue: [ 3 ]
-										            ifFalse: [ 1 ]);
-								           yourself);
-						          yourself).
-				         composite add: (RSLabel new
-						          text: proj name;
-						          color: Color black;
-						          yourself).
-				         composite adjustToChildren.
-				         composite model: proj.
-				         composite
-					         when: RSMouseClick
-					         do: [ :evt | aOneArgBlock value: proj ]
-					         for: self.
-				         self
-					         addContextMenuTo: composite
-					         project: proj
-					         graph: aGraph.
-				         composite ]
-		         as: RSGroup.
+		collect: [ :proj |
+			| composite hasOwnStale hasParseError redBorder |
+			hasParseError := aGraph hasParseFailure: proj name.
+			hasOwnStale := (aGraph staleOutgoingReferencesOf: proj name) isNotEmpty.
+			redBorder := hasParseError or: [ hasOwnStale ].
+			composite := RSComposite new.
+			composite add: (RSBox new
+				extent: 130 @ 40;
+				color: (self colorFor: proj name usingGraph: aGraph);
+				border: (RSBorder new
+					color: (redBorder ifTrue: [ Color red ] ifFalse: [ Color black ]);
+					width: (redBorder ifTrue: [ 3 ] ifFalse: [ 1 ]);
+					yourself);
+				yourself).
+			composite add: (RSLabel new
+				text: proj name;
+				color: Color black;
+				yourself).
+			composite adjustToChildren.
+			composite model: proj.
+			composite
+				when: RSMouseClick
+				do: [ :evt | aOneArgBlock value: proj ]
+				for: self.
+			self addContextMenuTo: composite project: proj graph: aGraph.
+			composite ]
+		as: RSGroup.
 	canvas addAll: boxes.
-	knownToKnownRefs := aGraph allReferences reject: [ :r |
-			                    r isExternal or: [
-					                    (shownNames includes: r ownerProjectName) not
-						                    or: [
-						                    (shownNames includes: r targetProject name)
-							                    not ] ] ].
-	edgesByKey := Dictionary new.
-	knownToKnownRefs do: [ :r |
-			(edgesByKey
-				 at: (self displayKeyFor: r)
-				 ifAbsentPut: [ OrderedCollection new ]) add: r ].
-	#( #stale #commit #branch #none ) do: [ :key |
-			| refsOfKey assocs builder createdEdges |
-			refsOfKey := edgesByKey at: key ifAbsent: [ #(  ) ].
-			refsOfKey isEmpty ifFalse: [
-					assocs := refsOfKey collect: [ :r |
-						          (GftProject named: r ownerProjectName)
-						          -> r targetProject ].
-					builder := RSEdgeBuilder arrowedLine
-						           canvas: canvas;
-						           withBorderAttachPoint;
-						           color: (self colorForReference: refsOfKey first);
-						           moveBehind;
-						           yourself.
-					key = #branch ifTrue: [ builder dashed ].
-					createdEdges := builder useAssociations: assocs.
-					createdEdges with: refsOfKey do: [ :edge :ref |
-							| labelText |
-							labelText := self edgeLabelTextFor: ref.
-							labelText isEmpty ifFalse: [
-									edge markerMid: (RSLabel new
-											 text: labelText;
-											 color: (self colorForReference: ref);
-											 fontSize: 8;
-											 yourself) ] ] ] ].
+	(aGraph allReferences reject: [ :r |
+		r isExternal or: [
+			(shownNames includes: r ownerProjectName) not
+				or: [ (shownNames includes: r targetProject name) not ] ] ])
+		do: [ :r |
+			| builder createdEdges labelText |
+			builder := RSEdgeBuilder arrowedLine
+				canvas: canvas;
+				withBorderAttachPoint;
+				color: (self colorForReference: r);
+				moveBehind;
+				yourself.
+			(self displayKeyFor: r) = #branch ifTrue: [ builder dashed ].
+			createdEdges := builder useAssociations: { (GftProject named: r ownerProjectName) -> r targetProject }.
+			labelText := self edgeLabelTextFor: r.
+			labelText isEmpty ifFalse: [
+				createdEdges do: [ :edge |
+					edge markerMid: (RSLabel new
+						text: labelText;
+						color: (self colorForReference: r);
+						fontSize: 8;
+						yourself) ] ] ].
 	layout := RSSugiyamaLayout new.
 	layout horizontalGap: 50.
 	layout verticalGap: 70.

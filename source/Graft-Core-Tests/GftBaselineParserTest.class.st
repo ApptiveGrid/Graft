@@ -31,6 +31,19 @@ GftBaselineParserTest >> testAllKnownProjectsParseWithoutError [
 ]
 
 { #category : 'tests' }
+GftBaselineParserTest >> testApptiveBaseNeoCSVResolvesToImageProject [
+	"apptive-base declares a NeoCSV dependency. Since the project universe is now every cloned
+	Iceberg repo (not only the curated ApptiveGrid set), and NeoCSV is cloned in this image, the
+	reference resolves to an internal NeoCSV node rather than an external leaf -- the v1 curated
+	scope treated it as external, see GftProject class>>buildKnownProjects."
+	| refs ref |
+	refs := GftBaselineParser referencesFor: (GftProject named: 'apptive-base').
+	ref := refs detect: [ :r | r declaredName = 'NeoCSV' ].
+	self deny: ref isExternal.
+	self assert: ref targetProject name equals: 'NeoCSV'
+]
+
+{ #category : 'tests' }
 GftBaselineParserTest >> testApptiveBaseReferencesFluxBaseAsCommitPin [
 	| refs ref |
 	refs := GftBaselineParser referencesFor: (GftProject named: 'apptive-base').
@@ -38,14 +51,6 @@ GftBaselineParserTest >> testApptiveBaseReferencesFluxBaseAsCommitPin [
 	self assert: ref pinKind equals: #commit.
 	self deny: ref isExternal.
 	self assert: ref targetProject name equals: 'FluxBase'
-]
-
-{ #category : 'tests' }
-GftBaselineParserTest >> testApptiveBaseReferencesNeoCSVAsExternalLeaf [
-	| refs ref |
-	refs := GftBaselineParser referencesFor: (GftProject named: 'apptive-base').
-	ref := refs detect: [ :r | r declaredName = 'NeoCSV' ].
-	self assert: ref isExternal
 ]
 
 { #category : 'tests' }

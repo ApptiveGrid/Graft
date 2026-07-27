@@ -47,18 +47,14 @@ GftPresenter class >> open [
 
 { #category : 'actions' }
 GftPresenter >> applyCustomSelection: chosenNames [
-	chosenNames isEmpty ifTrue: [ ^ self inform: 'Keine Projekte ausgewählt.' ].
-	viewProjectNames := chosenNames.
-	selectedProject := nil.
-	selectedLabel label: 'Custom (', chosenNames size printString, ' Projekte)'.
-	detailTable items: #().
-	dependentsTable items: #().
-	roassal canvas: (GftGraphBuilder
-		canvasFor: graph
-		projects: (chosenNames collect: [ :n | GftProject named: n ])
-		onSelect: [ :proj | self showProject: proj ]).
-	roassal refresh.
-	self refreshStaleRefsTableForScope: viewProjectNames
+	"Persists the chosen project names class-side (GftProject selectedProjectNames:) so the
+	sidebar/graph scope survives image restarts and needs no code edit to start showing a freshly
+	cloned project such as OpenAPI. An empty choice clears the selection -> back to all image
+	projects. Then rebuilds everything via #reloadProjects."
+	chosenNames isEmpty
+		ifTrue: [ GftProject clearSelection ]
+		ifFalse: [ GftProject selectedProjectNames: chosenNames ].
+	self reloadProjects
 ]
 
 { #category : 'initialization' }
@@ -155,21 +151,21 @@ GftPresenter >> generateUpdateBranchName [
 { #category : 'initialization' }
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
-	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
+	viewProjectNames := GftProject managedProjectNames.
 	roassal := self newRoassal.
 	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	projectSidebar := self newList.
 	projectSidebar items: ((OrderedCollection new)
 		add: #all;
 		add: #custom;
-		addAll: (GftProject knownProjects asSortedCollection: [ :a :b | a name <= b name ]);
+		addAll: (GftProject managedProjects asSortedCollection: [ :a :b | a name <= b name ]);
 		yourself).
 	projectSidebar display: [ :item |
 		item == #all
-			ifTrue: [ '◆ Alle' ]
-			ifFalse: [ item == #custom ifTrue: [ '◆ Custom...' ] ifFalse: [ '   ', item name ] ] ].
+			ifTrue: [ '◆ Alle (Auswahl zurücksetzen)' ]
+			ifFalse: [ item == #custom ifTrue: [ '◆ Auswahl ändern…' ] ifFalse: [ '   ', item name ] ] ].
 	selectedLabel := self newLabel.
-	selectedLabel label: 'Alle Projekte'.
+	self updateSelectedLabel.
 	detailTable := self newTable.
 	detailTable
 		addColumn: (SpStringTableColumn title: 'Abhängigkeit von' evaluated: [ :r | r declaredName ]);
@@ -225,7 +221,7 @@ GftPresenter >> offerBranchSwitchFor: aCollectionOfProjectNames [
 		| proj |
 		proj := GftProject named: name.
 		(GftUpdater needsBranchDecision: proj) ifTrue: [
-			(self confirm: proj name, ' steht auf Branch ''', (GftUpdater currentBranchDescriptionFor: proj), ''', nicht auf dem getrackten ''', proj trackedRef, '''. Neuen Branch für dieses Update anlegen und dorthin wechseln?')
+			(self confirm: proj name, ' steht auf Branch ', (GftUpdater currentBranchDescriptionFor: proj), ', nicht auf dem getrackten ', proj trackedRef, '. Neuen Branch für dieses Update anlegen und dorthin wechseln?')
 				ifTrue: [
 					branchName ifNil: [ branchName := self generateUpdateBranchName ].
 					GftUpdater switchToUpdateBranch: branchName for: proj ] ] ]
@@ -260,7 +256,7 @@ GftPresenter >> offerIgnoreUnrelatedChangesFor: aCollectionOfProjectNames [
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
-	picker initiallySelected: viewProjectNames.
+	picker initiallySelected: GftProject managedProjectNames.
 	picker onApply: [ :chosenNames | self applyCustomSelection: chosenNames ].
 	picker open
 ]
@@ -311,14 +307,12 @@ GftPresenter >> rebuildGraphView [
 	via #refresh (self changed: #applyScript with: #()), which the adapter listens for. Without
 	it the Morph kept showing the OLD canvas even though graph/roassal canvas were already
 	rebuilt in memory -- e.g. after committing something via Iceberg, the graph looked unchanged
-	until the whole GftPresenter window was closed and reopened."
+	until the whole GftPresenter window was closed and reopened.
+	The drawn set is exactly GftProject managedProjects (the graph is now built over that set), so
+	no per-view node filtering is needed here anymore -- picking/resetting the selection goes
+	through #reloadProjects instead."
 	graph := GftDependencyGraph build.
-	roassal canvas: (viewProjectNames size = GftProject knownProjects size
-		ifTrue: [ GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ] ]
-		ifFalse: [ GftGraphBuilder
-			canvasFor: graph
-			projects: (viewProjectNames collect: [ :n | GftProject named: n ])
-			onSelect: [ :proj | self showProject: proj ] ]).
+	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	roassal refresh.
 	selectedProject
 		ifNotNil: [ self showProject: selectedProject ]
@@ -327,7 +321,7 @@ GftPresenter >> rebuildGraphView [
 
 { #category : 'actions' }
 GftPresenter >> refreshAll [
-	GftVersionResolver fetchAll: GftProject knownProjects.
+	GftVersionResolver fetchAll: GftProject managedProjects.
 	self rebuildGraphView
 ]
 
@@ -349,15 +343,34 @@ GftPresenter >> refreshStaleRefsTableForScope: names [
 ]
 
 { #category : 'actions' }
-GftPresenter >> selectAllView [
-	viewProjectNames := GftProject knownProjects collect: [ :p | p name ].
-	selectedProject := nil.
-	selectedLabel label: 'Alle Projekte'.
+GftPresenter >> reloadProjects [
+	"Rebuilds graph, sidebar list and canvas after the persisted project selection changed
+	(Custom-picker apply, or reset via the sidebars Alle entry). Keeps the currently-clicked
+	project focused if it is still in scope, otherwise falls back to the whole-scope stale table."
+	graph := GftDependencyGraph build.
+	viewProjectNames := GftProject managedProjectNames.
+	projectSidebar items: ((OrderedCollection new)
+		add: #all;
+		add: #custom;
+		addAll: (GftProject managedProjects asSortedCollection: [ :a :b | a name <= b name ]);
+		yourself).
+	self updateSelectedLabel.
 	detailTable items: #().
 	dependentsTable items: #().
 	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	roassal refresh.
-	self refreshStaleRefsTableForScope: viewProjectNames
+	(selectedProject notNil and: [ viewProjectNames includes: selectedProject name ])
+		ifTrue: [ self showProject: selectedProject ]
+		ifFalse: [
+			selectedProject := nil.
+			self refreshStaleRefsTableForScope: viewProjectNames ]
+]
+
+{ #category : 'actions' }
+GftPresenter >> selectAllView [
+	"Sidebar ◆ Alle: clears the persisted Custom selection so every image project shows again."
+	GftProject clearSelection.
+	self reloadProjects
 ]
 
 { #category : 'private' }
@@ -393,7 +406,7 @@ GftPresenter >> showBumpPlanForSelectedProject [
 { #category : 'actions' }
 GftPresenter >> showProject: aProject [
 	"Populates the detail/dependents (browsing) tables AND scopes the 'Ausgewählte Pins'
-	action table down to just this one project's stale references -- used both by clicking a
+	action table down to just this one projects stale references -- used both by clicking a
 	node in the graph and by clicking an individual project row in the sidebar. Does not change
 	which projects are drawn in the graph (see #selectAllView/#applyCustomSelection: for that),
 	so inspecting/updating one project does not lose a Custom view."
@@ -410,6 +423,15 @@ GftPresenter >> sidebarSelected: item [
 	item == #all ifTrue: [ ^ self selectAllView ].
 	item == #custom ifTrue: [ ^ self openCustomPicker ].
 	self showProject: item
+]
+
+{ #category : 'private' }
+GftPresenter >> updateSelectedLabel [
+	"Reflects the current scope in the header label: either the persisted Custom selection size or,
+	when no selection is set, the full image-project count (see GftProject managedProjects)."
+	selectedLabel label: (GftProject hasSelection
+		ifTrue: [ 'Auswahl: ', GftProject managedProjects size printString, ' Projekte' ]
+		ifFalse: [ 'Alle Projekte im Image (', GftProject imageProjects size printString, ')' ])
 ]
 
 { #category : 'accessing' }

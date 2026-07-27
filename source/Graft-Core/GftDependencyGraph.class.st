@@ -2,7 +2,8 @@ Class {
 	#name : 'GftDependencyGraph',
 	#superclass : 'Object',
 	#instVars : [
-		'referencesByOwner'
+		'referencesByOwner',
+		'parseFailures'
 	],
 	#category : 'Graft-Core',
 	#package : 'Graft-Core'
@@ -23,8 +24,14 @@ GftDependencyGraph >> allReferences [
 { #category : 'building' }
 GftDependencyGraph >> build [
 	referencesByOwner := Dictionary new.
-	GftProject knownProjects do: [ :project |
-		referencesByOwner at: project name put: (GftBaselineParser referencesFor: project) ]
+	parseFailures := Set new.
+	GftProject flushImageProjects.
+	GftProject managedProjects do: [ :project |
+		[ referencesByOwner at: project name put: (GftBaselineParser referencesFor: project) ]
+			on: Error
+			do: [ :e |
+				parseFailures add: project name.
+				referencesByOwner at: project name put: OrderedCollection new ] ]
 ]
 
 { #category : 'accessing' }
@@ -41,6 +48,14 @@ GftDependencyGraph >> externalReferences [
 	^ self allReferences select: [ :r | r isExternal ]
 ]
 
+{ #category : 'accessing' }
+GftDependencyGraph >> hasParseFailure: aProjectName [
+	"True if aProjectName's BaselineOf could not be parsed during #build (e.g. a baseline that
+	errors when Metacello evaluates its version spec). Such a node is drawn with a red border and
+	has no outgoing edges -- see GftGraphBuilder class>>canvasFor:projects:onSelect:."
+	^ (parseFailures ifNil: [ #() ]) includes: aProjectName
+]
+
 { #category : 'testing' }
 GftDependencyGraph >> hasStaleDependents: aProjectName [
 	^ (self staleDependentsOf: aProjectName) isNotEmpty
@@ -48,7 +63,7 @@ GftDependencyGraph >> hasStaleDependents: aProjectName [
 
 { #category : 'accessing' }
 GftDependencyGraph >> projects [
-	^ GftProject knownProjects
+	^ GftProject managedProjects
 ]
 
 { #category : 'accessing' }

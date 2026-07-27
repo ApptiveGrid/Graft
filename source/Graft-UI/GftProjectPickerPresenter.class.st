@@ -34,7 +34,7 @@ GftProjectPickerPresenter >> defaultLayout [
 { #category : 'initialization' }
 GftProjectPickerPresenter >> initializePresenters [
 	list := self newList.
-	list items: (GftProject knownProjects asSortedCollection: [ :a :b | a name <= b name ]) asOrderedCollection.
+	list items: (GftProject imageProjects asSortedCollection: [ :a :b | a name <= b name ]) asOrderedCollection.
 	list display: [ :p | p name ].
 	list beMultipleSelection.
 	okButton := self newButton.
