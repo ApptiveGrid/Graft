@@ -17,7 +17,7 @@ Class {
 	#package : 'Graft-UI'
 }
 
-{ #category : 'initialization' }
+{ #category : 'Protocol (initialization) - 3 selector(s)' }
 GftProjectPickerPresenter >> connectPresenters [
 	addButton action: [ self moveToSelected ].
 	removeButton action: [ self moveToAvailable ].
@@ -32,7 +32,7 @@ GftProjectPickerPresenter >> connectPresenters [
 		self delete ]
 ]
 
-{ #category : 'layout' }
+{ #category : 'Protocol (layout) - 1 selector(s)' }
 GftProjectPickerPresenter >> defaultLayout [
 	| middle body |
 	middle := SpBoxLayout newTopToBottom
@@ -71,26 +71,26 @@ GftProjectPickerPresenter >> initializePresenters [
 	selectedList beMultipleSelection.
 	selectedList display: [ :p | p name ].
 	addButton := self newButton.
-	addButton label: '→'.
+	addButton label: '>'.
 	removeButton := self newButton.
-	removeButton label: '←'.
+	removeButton label: '<'.
 	addAllButton := self newButton.
-	addAllButton label: '≫'.
+	addAllButton label: '>>'.
 	removeAllButton := self newButton.
-	removeAllButton label: '≪'.
+	removeAllButton label: '<<'.
 	okButton := self newButton.
 	okButton label: 'Übernehmen'.
 	self initiallySelected: #()
 ]
 
-{ #category : 'initialization' }
+{ #category : 'Protocol (initialization) - 3 selector(s)' }
 GftProjectPickerPresenter >> initializeWindow: aWindowPresenter [
 	aWindowPresenter
 		title: self windowTitle;
 		initialExtent: 640@460
 ]
 
-{ #category : 'accessing' }
+{ #category : 'Protocol (accessing) - 3 selector(s)' }
 GftProjectPickerPresenter >> initiallySelected: aCollectionOfProjectNames [
 	"aCollectionOfProjectNames end up on the right (Angezeigt) list, the rest of the image
 	projects on the left (Verfügbar). Called before #open, after #initializePresenters created
@@ -103,19 +103,19 @@ GftProjectPickerPresenter >> initiallySelected: aCollectionOfProjectNames [
 	availableList items: (self sortedProjects: (all reject: [ :p | names includes: p name ]))
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (actions) - 4 selector(s)' }
 GftProjectPickerPresenter >> moveAllToAvailable [
 	availableList items: (self sortedProjects: (availableList items , selectedList items)).
 	selectedList items: #()
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (actions) - 4 selector(s)' }
 GftProjectPickerPresenter >> moveAllToSelected [
 	selectedList items: (self sortedProjects: (selectedList items , availableList items)).
 	availableList items: #()
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (actions) - 4 selector(s)' }
 GftProjectPickerPresenter >> moveToAvailable [
 	| chosen |
 	chosen := selectedList selectedItems.
@@ -124,7 +124,7 @@ GftProjectPickerPresenter >> moveToAvailable [
 	selectedList items: (self sortedProjects: (selectedList items reject: [ :p | chosen includes: p ]))
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (actions) - 4 selector(s)' }
 GftProjectPickerPresenter >> moveToSelected [
 	| chosen |
 	chosen := availableList selectedItems.
@@ -139,12 +139,12 @@ GftProjectPickerPresenter >> onApply: aOneArgBlock [
 	onApplyBlock := aOneArgBlock
 ]
 
-{ #category : 'private' }
+{ #category : 'Protocol (private) - 1 selector(s)' }
 GftProjectPickerPresenter >> sortedProjects: aCollection [
 	^ (aCollection asSortedCollection: [ :a :b | a name <= b name ]) asOrderedCollection
 ]
 
-{ #category : 'accessing' }
+{ #category : 'Protocol (accessing) - 3 selector(s)' }
 GftProjectPickerPresenter >> windowTitle [
 	^ 'Graft -- Projektauswahl'
 ]
