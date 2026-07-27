@@ -21,7 +21,7 @@ GftDependencyGraph >> allReferences [
 	^ referencesByOwner values inject: OrderedCollection new into: [ :acc :each | acc addAll: each; yourself ]
 ]
 
-{ #category : 'building' }
+{ #category : 'Protocol (building) - 1 selector(s)' }
 GftDependencyGraph >> build [
 	referencesByOwner := Dictionary new.
 	parseFailures := Set new.
@@ -48,7 +48,7 @@ GftDependencyGraph >> externalReferences [
 	^ self allReferences select: [ :r | r isExternal ]
 ]
 
-{ #category : 'accessing' }
+{ #category : 'Protocol (accessing) - 10 selector(s)' }
 GftDependencyGraph >> hasParseFailure: aProjectName [
 	"True if aProjectName's BaselineOf could not be parsed during #build (e.g. a baseline that
 	errors when Metacello evaluates its version spec). Such a node is drawn with a red border and
@@ -61,7 +61,7 @@ GftDependencyGraph >> hasStaleDependents: aProjectName [
 	^ (self staleDependentsOf: aProjectName) isNotEmpty
 ]
 
-{ #category : 'accessing' }
+{ #category : 'Protocol (accessing) - 10 selector(s)' }
 GftDependencyGraph >> projects [
 	^ GftProject managedProjects
 ]

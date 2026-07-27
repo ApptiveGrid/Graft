@@ -47,13 +47,13 @@ GftProject class >> buildKnownProjects [
 	}
 ]
 
-{ #category : 'selection' }
+{ #category : 'Protocol (selection) - 4 selector(s)' }
 GftProject class >> clearSelection [
 	"Back to the unfiltered default: every image project shows again."
 	SelectedProjectNames := nil
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> computeImageProjects [
 	"Scans the Iceberg registry once and builds the project universe: every registered repo that
 	ships a BaselineOf package. A repo whose name matches a curated knownProjects entry reuses that
@@ -71,13 +71,13 @@ GftProject class >> computeImageProjects [
 	^ result
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> flushImageProjects [
 	"Drops the discovered-projects cache so the next #imageProjects re-scans Iceberg."
 	ImageProjectsCache := nil
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> fromIceRepository: aRepo [
 	"Best-effort GftProject for an Iceberg repo not among the curated knownProjects. The
 	BaselineOf* package name becomes baselineClassName (nil -> not a Metacello project, answer nil);
@@ -97,12 +97,12 @@ GftProject class >> fromIceRepository: aRepo [
 	^ self name: aRepo name host: host owner: owner baselineClassName: blPkg name trackedRef: ref
 ]
 
-{ #category : 'selection' }
+{ #category : 'Protocol (selection) - 4 selector(s)' }
 GftProject class >> hasSelection [
 	^ self selectedProjectNames isNotEmpty
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> imageProjects [
 	"The project universe (see #computeImageProjects), cached in ImageProjectsCache and flushed by
 	#flushImageProjects (start of every GftDependencyGraph build, and on GUI refresh/pick/reset),
@@ -120,12 +120,12 @@ GftProject class >> knownProjects [
 	^ self buildKnownProjects
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> managedProjectNames [
 	^ self managedProjects collect: [ :p | p name ]
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> managedProjects [
 	"The working set Graft shows and graphs: the persisted Custom selection filtered out of the
 	image universe, or -- when the selection is empty -- the whole universe. See #selectedProjectNames."
@@ -147,12 +147,12 @@ GftProject class >> named: aName [
 	^ self named: aName ifAbsent: [ nil ]
 ]
 
-{ #category : 'known projects' }
+{ #category : 'Protocol (known projects) - 5 selector(s)' }
 GftProject class >> named: aName ifAbsent: aBlock [
 	^ self imageProjects detect: [ :p | p name = aName ] ifNone: aBlock
 ]
 
-{ #category : 'image projects' }
+{ #category : 'Protocol (image projects) - 7 selector(s)' }
 GftProject class >> parseRemoteUrl: aString [
 	"Extracts { hostSymbol. owner } from a git remote URL such as
 	git@github.com:owner/repo.git or https://github.com/owner/repo.git. Answers { nil. nil }
@@ -172,7 +172,7 @@ GftProject class >> parseRemoteUrl: aString [
 	^ { host. owner }
 ]
 
-{ #category : 'known projects' }
+{ #category : 'Protocol (known projects) - 5 selector(s)' }
 GftProject class >> projectForOwner: anOwner repo: aRepoName [
 	"Resolves an owner+repo pair (as parsed from a repository: URL) back to a project in the image
 	universe, or nil if it points outside it (a third-party leaf). Owner may be nil on a
@@ -184,7 +184,7 @@ GftProject class >> projectForOwner: anOwner repo: aRepoName [
 		ifNone: [ nil ]
 ]
 
-{ #category : 'selection' }
+{ #category : 'Protocol (selection) - 4 selector(s)' }
 GftProject class >> selectedProjectNames [
 	"The user-picked subset of project names to show, persisted class-side so it survives image
 	restarts and needs no code edit to add/remove a project. Empty = no filter (show every image
@@ -192,7 +192,7 @@ GftProject class >> selectedProjectNames [
 	^ SelectedProjectNames ifNil: [ #() ]
 ]
 
-{ #category : 'selection' }
+{ #category : 'Protocol (selection) - 4 selector(s)' }
 GftProject class >> selectedProjectNames: aCollectionOfNames [
 	SelectedProjectNames := aCollectionOfNames asArray
 ]

@@ -31,7 +31,7 @@ GftProjectPickerPresenter >> defaultLayout [
 		yourself
 ]
 
-{ #category : 'initialization' }
+{ #category : 'Protocol (initialization) - 2 selector(s)' }
 GftProjectPickerPresenter >> initializePresenters [
 	list := self newList.
 	list items: (GftProject imageProjects asSortedCollection: [ :a :b | a name <= b name ]) asOrderedCollection.
