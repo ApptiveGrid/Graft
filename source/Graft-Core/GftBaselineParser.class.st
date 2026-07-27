@@ -5,7 +5,7 @@ Class {
 	#package : 'Graft-Core'
 }
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (parsing) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)' }
+{ #category : 'parsing' }
 GftBaselineParser class >> referencesFor: aProject [
 	"Answers an OrderedCollection of GftDependencyReference for every project/baseline
 	dependency declared by aProject's BaselineOf class. Works by asking Metacello to

@@ -45,7 +45,7 @@ GftPresenter class >> open [
 	^ self new open
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> applyCustomSelection: chosenNames [
 	"Persists the chosen project names class-side (GftProject selectedProjectNames:) so the
 	sidebar/graph scope survives image restarts and needs no code edit to start showing a freshly
@@ -148,7 +148,7 @@ GftPresenter >> generateUpdateBranchName [
 	^ 'graft/update-', now year printString, (now month printPaddedWith: $0 to: 2), (now dayOfMonth printPaddedWith: $0 to: 2), '-', (now hour printPaddedWith: $0 to: 2), (now minute printPaddedWith: $0 to: 2), (now second printPaddedWith: $0 to: 2)
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (initialization) - 2 selector(s)) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)' }
+{ #category : 'initialization' }
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
 	viewProjectNames := GftProject managedProjectNames.
@@ -252,7 +252,7 @@ GftPresenter >> offerIgnoreUnrelatedChangesFor: aCollectionOfProjectNames [
 		, 'Trotzdem zusammen mit dem Dependency-Update committen?'
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
@@ -298,7 +298,7 @@ GftPresenter >> performUpdate [
 	self rebuildGraphView
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> rebuildGraphView [
 	"Rebuilds the dependency graph from whatever is currently loaded/committed (no network
 	access -- see GftDependencyGraph class>>build) and repaints the Roassal canvas. The view is
@@ -313,7 +313,7 @@ GftPresenter >> rebuildGraphView [
 		ifNil: [ self refreshStaleRefsTableForScope: viewProjectNames ]
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> refreshAll [
 	GftVersionResolver fetchAll: GftProject managedProjects.
 	self rebuildGraphView
@@ -336,7 +336,7 @@ GftPresenter >> refreshStaleRefsTableForScope: names [
 	staleRefsTable selectAll
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> reloadProjects [
 	"Rebuilds graph, sidebar list and canvas after the persisted project selection changed
 	(Custom-picker apply, or reset via the sidebars Alle entry). The Roassal view is driven by the
@@ -360,7 +360,7 @@ GftPresenter >> reloadProjects [
 			self refreshStaleRefsTableForScope: viewProjectNames ]
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
+{ #category : 'actions' }
 GftPresenter >> selectAllView [
 	"Sidebar ◆ Alle: clears the persisted Custom selection so every image project shows again."
 	GftProject clearSelection.
@@ -419,7 +419,7 @@ GftPresenter >> sidebarSelected: item [
 	self showProject: item
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (private) - 2 selector(s)) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)' }
+{ #category : 'private' }
 GftPresenter >> updateSelectedLabel [
 	"Reflects the current scope in the header label: either the persisted Custom selection size or,
 	when no selection is set, the full image-project count (see GftProject managedProjects)."

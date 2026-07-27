@@ -31,7 +31,7 @@ GftGraphBuilder class >> canvasFor: aGraph onSelect: aOneArgBlock [
 	^ self canvasFor: aGraph projects: aGraph projects onSelect: aOneArgBlock
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (building) - 5 selector(s)) - 2 selector(s)) - 2 selector(s)) - 2 selector(s)' }
+{ #category : 'building' }
 GftGraphBuilder class >> canvasFor: aGraph projects: projectsToShow onSelect: aOneArgBlock [
 	"Builds and answers a fresh RSCanvas for projectsToShow. Convenience wrapper around
 	#renderGraph:projects:onSelect:on: for callers/tests that want a standalone canvas; the GUI
@@ -98,7 +98,7 @@ GftGraphBuilder class >> edgeLabelTextFor: aReference [
 		ifFalse: [ ref ]
 ]
 
-{ #category : 'Protocol (Protocol (Protocol (Protocol (building) - 5 selector(s)) - 2 selector(s)) - 2 selector(s)) - 2 selector(s)' }
+{ #category : 'building' }
 GftGraphBuilder class >> renderGraph: aGraph projects: projectsToShow onSelect: aOneArgBlock on: canvas [
 	"Populates the given RSCanvas with the nodes/edges for projectsToShow (see the sibling
 	#canvasFor:projects:onSelect: for the full node/edge styling contract). Split out so the
