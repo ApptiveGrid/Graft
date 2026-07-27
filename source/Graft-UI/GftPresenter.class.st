@@ -198,7 +198,8 @@ GftPresenter >> initializePresenters [
 	redrawButton := self newButton.
 	redrawButton label: 'Neu zeichnen'.
 	bumpButton := self newButton.
-	bumpButton label: 'Bump-Plan berechnen'.
+	bumpButton label: 'Wer müsste nachziehen?'.
+	bumpButton help: 'Vorschau, ändert nichts: welche Projekte müssten ihre BaselineOf anpassen, wenn das gewählte Projekt einen neuen Commit bekäme? Ebene 1 konkret mit Diff, weitere Ebenen nur als Kaskaden-Vorschau. Erst ein Projekt anklicken (Graph oder Sidebar); ggf. vorher Refresh drücken.'.
 	commitCheckbox := self newCheckBox.
 	commitCheckbox label: 'Committen (statt nur Code ändern)'.
 	commitCheckbox state: false.
