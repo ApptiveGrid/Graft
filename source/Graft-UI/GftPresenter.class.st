@@ -45,7 +45,7 @@ GftPresenter class >> open [
 	^ self new open
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> applyCustomSelection: chosenNames [
 	"Persists the chosen project names class-side (GftProject selectedProjectNames:) so the
 	sidebar/graph scope survives image restarts and needs no code edit to start showing a freshly
@@ -148,12 +148,12 @@ GftPresenter >> generateUpdateBranchName [
 	^ 'graft/update-', now year printString, (now month printPaddedWith: $0 to: 2), (now dayOfMonth printPaddedWith: $0 to: 2), '-', (now hour printPaddedWith: $0 to: 2), (now minute printPaddedWith: $0 to: 2), (now second printPaddedWith: $0 to: 2)
 ]
 
-{ #category : 'initialization' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (initialization) - 2 selector(s)) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)' }
 GftPresenter >> initializePresenters [
 	graph := GftDependencyGraph build.
 	viewProjectNames := GftProject managedProjectNames.
 	roassal := self newRoassal.
-	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
+	roassal script: [ :c | GftGraphBuilder renderGraph: graph projects: graph projects onSelect: [ :proj | self showProject: proj ] on: c ].
 	projectSidebar := self newList.
 	projectSidebar items: ((OrderedCollection new)
 		add: #all;
@@ -252,7 +252,7 @@ GftPresenter >> offerIgnoreUnrelatedChangesFor: aCollectionOfProjectNames [
 		, 'Trotzdem zusammen mit dem Dependency-Update committen?'
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> openCustomPicker [
 	| picker |
 	picker := GftProjectPickerPresenter new.
@@ -298,28 +298,22 @@ GftPresenter >> performUpdate [
 	self rebuildGraphView
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> rebuildGraphView [
 	"Rebuilds the dependency graph from whatever is currently loaded/committed (no network
-	access -- see GftDependencyGraph class>>build) and redraws the Roassal canvas in place.
-	roassal refresh (2026-07-21) is required after roassal canvas: -- SpRoassalPresenter>>canvas:
-	is a bare ivar setter with no change notification; the actual on-screen repaint only fires
-	via #refresh (self changed: #applyScript with: #()), which the adapter listens for. Without
-	it the Morph kept showing the OLD canvas even though graph/roassal canvas were already
-	rebuilt in memory -- e.g. after committing something via Iceberg, the graph looked unchanged
-	until the whole GftPresenter window was closed and reopened.
-	The drawn set is exactly GftProject managedProjects (the graph is now built over that set), so
-	no per-view node filtering is needed here anymore -- picking/resetting the selection goes
-	through #reloadProjects instead."
+	access -- see GftDependencyGraph class>>build) and repaints the Roassal canvas. The view is
+	driven by SpRoassalPresenter's script: block (set in #initializePresenters, reads the current
+	graph ivar), so #refresh re-runs it against a fresh canvas -- required because the adapter
+	rebuilds the canvas on refresh and a canvas handed in via #canvas: would not survive that.
+	The drawn set is exactly GftProject managedProjects (the graph is built over that set)."
 	graph := GftDependencyGraph build.
-	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	roassal refresh.
 	selectedProject
 		ifNotNil: [ self showProject: selectedProject ]
 		ifNil: [ self refreshStaleRefsTableForScope: viewProjectNames ]
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> refreshAll [
 	GftVersionResolver fetchAll: GftProject managedProjects.
 	self rebuildGraphView
@@ -342,11 +336,12 @@ GftPresenter >> refreshStaleRefsTableForScope: names [
 	staleRefsTable selectAll
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> reloadProjects [
 	"Rebuilds graph, sidebar list and canvas after the persisted project selection changed
-	(Custom-picker apply, or reset via the sidebars Alle entry). Keeps the currently-clicked
-	project focused if it is still in scope, otherwise falls back to the whole-scope stale table."
+	(Custom-picker apply, or reset via the sidebars Alle entry). The Roassal view is driven by the
+	script: block set in #initializePresenters (which reads the current graph), so a plain #refresh
+	repaints it. Keeps the currently-clicked project focused if it is still in scope."
 	graph := GftDependencyGraph build.
 	viewProjectNames := GftProject managedProjectNames.
 	projectSidebar items: ((OrderedCollection new)
@@ -357,7 +352,6 @@ GftPresenter >> reloadProjects [
 	self updateSelectedLabel.
 	detailTable items: #().
 	dependentsTable items: #().
-	roassal canvas: (GftGraphBuilder canvasFor: graph onSelect: [ :proj | self showProject: proj ]).
 	roassal refresh.
 	(selectedProject notNil and: [ viewProjectNames includes: selectedProject name ])
 		ifTrue: [ self showProject: selectedProject ]
@@ -366,7 +360,7 @@ GftPresenter >> reloadProjects [
 			self refreshStaleRefsTableForScope: viewProjectNames ]
 ]
 
-{ #category : 'actions' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (actions) - 14 selector(s)) - 6 selector(s)) - 6 selector(s)) - 6 selector(s)' }
 GftPresenter >> selectAllView [
 	"Sidebar ◆ Alle: clears the persisted Custom selection so every image project shows again."
 	GftProject clearSelection.
@@ -425,7 +419,7 @@ GftPresenter >> sidebarSelected: item [
 	self showProject: item
 ]
 
-{ #category : 'private' }
+{ #category : 'Protocol (Protocol (Protocol (Protocol (private) - 2 selector(s)) - 1 selector(s)) - 1 selector(s)) - 1 selector(s)' }
 GftPresenter >> updateSelectedLabel [
 	"Reflects the current scope in the header label: either the persisted Custom selection size or,
 	when no selection is set, the full image-project count (see GftProject managedProjects)."
