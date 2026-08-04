@@ -37,7 +37,7 @@ GftPresenter class >> menuCommandOn: aBuilder [
 		parent: #Tools;
 		action: [ self new open ];
 		order: 50;
-		help: 'Öffnet Graft: Metacello-BaselineOf-Dependency-Verwaltung über die ApptiveGrid-Projekte.'
+		help: 'Opens Graft: Metacello BaselineOf dependency management across the ApptiveGrid projects.'
 ]
 
 { #category : 'instance creation' }
@@ -84,7 +84,7 @@ GftPresenter >> defaultLayout [
 	| top rightSide sidebarBox actionsBox bottomBox middlePaned outerPaned mainPaned |
 	sidebarBox := SpBoxLayout newTopToBottom
 		spacing: 6; borderWidth: 6;
-		add: 'Projekte' expand: false;
+		add: 'Projects' expand: false;
 		add: projectSidebar expand: true;
 		yourself.
 	top := SpBoxLayout newLeftToRight
@@ -98,12 +98,12 @@ GftPresenter >> defaultLayout [
 		positionOfSlider: 50 percent;
 		add: (SpBoxLayout newTopToBottom
 			spacing: 6; borderWidth: 6;
-			add: 'Abhängigkeiten dieses Projekts' expand: false;
+			add: 'Dependencies of this project' expand: false;
 			add: detailTable expand: true;
 			yourself);
 		add: (SpBoxLayout newTopToBottom
 			spacing: 6; borderWidth: 6;
-			add: 'Abhängige Projekte (wer zeigt hierauf)' expand: false;
+			add: 'Dependent projects (who points here)' expand: false;
 			add: dependentsTable expand: true;
 			yourself);
 		yourself.
@@ -124,7 +124,7 @@ GftPresenter >> defaultLayout [
 		yourself.
 	bottomBox := SpBoxLayout newTopToBottom
 		spacing: 6; borderWidth: 6;
-		add: 'Veraltete Pins im aktuellen Scope (Häkchen = wird bei Aktualisieren angefasst)' expand: false;
+		add: 'Stale pins in current scope (checked = will be touched by Update)' expand: false;
 		add: staleRefsTable expand: true;
 		add: actionsBox expand: false;
 		yourself.
@@ -162,49 +162,49 @@ GftPresenter >> initializePresenters [
 		yourself).
 	projectSidebar display: [ :item |
 		item == #all
-			ifTrue: [ '◆ Alle (Auswahl zurücksetzen)' ]
-			ifFalse: [ item == #custom ifTrue: [ '◆ Auswahl ändern…' ] ifFalse: [ '   ', item name ] ] ].
+			ifTrue: [ '◆ All (reset selection)' ]
+			ifFalse: [ item == #custom ifTrue: [ '◆ Change selection…' ] ifFalse: [ '   ', item name ] ] ].
 	selectedLabel := self newLabel.
 	self updateSelectedLabel.
 	detailTable := self newTable.
 	detailTable
-		addColumn: (SpStringTableColumn title: 'Abhängigkeit von' evaluated: [ :r | r declaredName ]);
+		addColumn: (SpStringTableColumn title: 'Depends on' evaluated: [ :r | r declaredName ]);
 		addColumn: (SpStringTableColumn title: 'Pin' evaluated: [ :r | r pinKind asString ]);
 		addColumn: (SpStringTableColumn title: 'Ref' evaluated: [ :r | r url ref ifNil: [ '' ] ]);
 		addColumn: (SpStringTableColumn title: 'Status' evaluated: [ :r |
 			r pinKind = #commit
-				ifTrue: [ r isStale ifTrue: [ 'veraltet' ] ifFalse: [ 'aktuell' ] ]
+				ifTrue: [ r isStale ifTrue: [ 'stale' ] ifFalse: [ 'current' ] ]
 				ifFalse: [ '-' ] ]);
-		addColumn: (SpStringTableColumn title: 'Bekannt?' evaluated: [ :r | r isExternal ifTrue: [ 'extern' ] ifFalse: [ 'ja' ] ]).
+		addColumn: (SpStringTableColumn title: 'Known?' evaluated: [ :r | r isExternal ifTrue: [ 'external' ] ifFalse: [ 'yes' ] ]).
 	dependentsTable := self newTable.
 	dependentsTable
-		addColumn: (SpStringTableColumn title: 'Abhängiges Projekt' evaluated: [ :r | r ownerProjectName ]);
+		addColumn: (SpStringTableColumn title: 'Dependent project' evaluated: [ :r | r ownerProjectName ]);
 		addColumn: (SpStringTableColumn title: 'Pin' evaluated: [ :r | r pinKind asString ]);
 		addColumn: (SpStringTableColumn title: 'Ref' evaluated: [ :r | r url ref ifNil: [ '' ] ]);
 		addColumn: (SpStringTableColumn title: 'Status' evaluated: [ :r |
 			r pinKind = #commit
-				ifTrue: [ r isStale ifTrue: [ 'veraltet' ] ifFalse: [ 'aktuell' ] ]
+				ifTrue: [ r isStale ifTrue: [ 'stale' ] ifFalse: [ 'current' ] ]
 				ifFalse: [ '-' ] ]).
 	staleRefsTable := self newTable.
 	staleRefsTable beMultipleSelection.
 	staleRefsTable
 		addColumn: (SpStringTableColumn title: 'Projekt' evaluated: [ :r | r ownerProjectName ]);
-		addColumn: (SpStringTableColumn title: 'Abhängigkeit' evaluated: [ :r | r declaredName ]);
-		addColumn: (SpStringTableColumn title: 'Alter Ref' evaluated: [ :r | self shorten: r url ref ]);
-		addColumn: (SpStringTableColumn title: 'Neuer Ref' evaluated: [ :r |
+		addColumn: (SpStringTableColumn title: 'Dependency' evaluated: [ :r | r declaredName ]);
+		addColumn: (SpStringTableColumn title: 'Old ref' evaluated: [ :r | self shorten: r url ref ]);
+		addColumn: (SpStringTableColumn title: 'New ref' evaluated: [ :r |
 			self shorten: (GftVersionResolver effectiveTipFor: r targetProject) ]).
 	refreshButton := self newButton.
 	refreshButton label: 'Refresh (fetch)'.
 	redrawButton := self newButton.
-	redrawButton label: 'Neu zeichnen'.
+	redrawButton label: 'Redraw'.
 	bumpButton := self newButton.
-	bumpButton label: 'Wer müsste nachziehen?'.
-	bumpButton help: 'Vorschau, ändert nichts: welche Projekte müssten ihre BaselineOf anpassen, wenn das gewählte Projekt einen neuen Commit bekäme? Ebene 1 konkret mit Diff, weitere Ebenen nur als Kaskaden-Vorschau. Erst ein Projekt anklicken (Graph oder Sidebar); ggf. vorher Refresh drücken.'.
+	bumpButton label: 'Who would need to catch up?'.
+	bumpButton help: 'Preview, changes nothing: which projects would need to adjust their BaselineOf if the selected project got a new commit? Level 1 concrete with diff, further levels only as a cascade preview. Click a project first (graph or sidebar); use Refresh first if needed.'.
 	commitCheckbox := self newCheckBox.
-	commitCheckbox label: 'Committen (statt nur Code ändern)'.
+	commitCheckbox label: 'Commit (instead of just changing code)'.
 	commitCheckbox state: false.
 	updateButton := self newButton.
-	updateButton label: 'Ausgewählte Pins aktualisieren'.
+	updateButton label: 'Update selected pins'.
 	planText := self newText.
 	planText beNotEditable
 ]
@@ -214,7 +214,7 @@ GftPresenter >> offerBranchSwitchFor: aCollectionOfProjectNames [
 	"For every project among aCollectionOfProjectNames that is not on its tracked branch
 	(GftUpdater class>>needsBranchDecision:), asks once whether to create/switch to a fresh
 	branch for this update instead. All projects that say yes share the same generated branch
-	name (one per Aktualisieren click), so a coordinated multi-repo bump lands on
+	name (one per Update click), so a coordinated multi-repo bump lands on
 	same-named branches. Declining leaves that project checked out as-is."
 	| branchName |
 	branchName := nil.
@@ -222,7 +222,7 @@ GftPresenter >> offerBranchSwitchFor: aCollectionOfProjectNames [
 		| proj |
 		proj := GftProject named: name.
 		(GftUpdater needsBranchDecision: proj) ifTrue: [
-			(self confirm: proj name, ' steht auf Branch ', (GftUpdater currentBranchDescriptionFor: proj), ', nicht auf dem getrackten ', proj trackedRef, '. Neuen Branch für dieses Update anlegen und dorthin wechseln?')
+			(self confirm: proj name, ' is on branch ', (GftUpdater currentBranchDescriptionFor: proj), ', not on the tracked ', proj trackedRef, '. Create a new branch for this update and switch to it?')
 				ifTrue: [
 					branchName ifNil: [ branchName := self generateUpdateBranchName ].
 					GftUpdater switchToUpdateBranch: branchName for: proj ] ] ]
@@ -248,9 +248,9 @@ GftPresenter >> offerIgnoreUnrelatedChangesFor: aCollectionOfProjectNames [
 		description
 			nextPutAll: name, ': ', ((pkgs collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]);
 			cr ].
-	^ self confirm: 'Folgende Projekte haben bereits unabhängige, nicht committete Änderungen:'
+	^ self confirm: 'The following projects already have unrelated, uncommitted changes:'
 		, (String with: Character cr), description contents
-		, 'Trotzdem zusammen mit dem Dependency-Update committen?'
+		, 'Commit them together with the dependency update anyway?'
 ]
 
 { #category : 'actions' }
@@ -264,7 +264,7 @@ GftPresenter >> openCustomPicker [
 
 { #category : 'actions' }
 GftPresenter >> performUpdate [
-	"Applies exactly the rows currently checked/selected in the 'Ausgewählte Pins'-Tabelle --
+	"Applies exactly the rows currently checked/selected in the 'Selected pins' table --
 	not automatically every stale pin of a project. commitCheckbox controls whether this only
 	rewrites the affected BaselineOf method(s) in the live image (left uncommitted) or also
 	commits locally, one commit per owner project -- see GftUpdater class>>updateReferences:
@@ -276,7 +276,7 @@ GftPresenter >> performUpdate [
 	declining either just proceeds as before (current branch / still blocked, respectively)."
 	| chosen commit preview results summary ownerProjectNames ignoreUnrelated |
 	chosen := staleRefsTable selectedItems asOrderedCollection.
-	chosen isEmpty ifTrue: [ ^ self inform: 'Keine Pins ausgewählt (Tabelle unten rechts).' ].
+	chosen isEmpty ifTrue: [ ^ self inform: 'No pins selected (table bottom right).' ].
 	commit := commitCheckbox state.
 	preview := String new writeStream.
 	chosen do: [ :ref |
@@ -286,8 +286,8 @@ GftPresenter >> performUpdate [
 			preview nextPutAll: (GftBaselineRewriter previewForReference: ref newRef: newRef) diffText; cr; cr ] ].
 	planText text: preview contents.
 	(self confirm: (commit
-		ifTrue: [ chosen size printString, ' ausgewählte Pin(s) jetzt ändern UND lokal committen (kein Push)?' ]
-		ifFalse: [ chosen size printString, ' ausgewählte Pin(s) nur im Code ändern, NICHT committen?' ]))
+		ifTrue: [ chosen size printString, ' selected pin(s): change now AND commit locally (no push)?' ]
+		ifFalse: [ chosen size printString, ' selected pin(s): change in code only, do NOT commit?' ]))
 		ifFalse: [ ^ self ].
 	ownerProjectNames := (chosen collect: [ :r | r ownerProjectName ]) asSet.
 	self offerBranchSwitchFor: ownerProjectNames.
@@ -327,8 +327,8 @@ GftPresenter >> refreshStaleRefsTableForScope: names [
 	stale pins pointing at something in scope (they need to catch up to it). Fixed 2026-07-20:
 	previously only looked at ownerProjectName, so clicking e.g. apptivescript (which has no
 	stale outgoing pins of its own) showed an empty table even though apptive-base -- visible
-	right there in the Abhaengige-Projekte table as veraltet -- has a stale pin to apptivescript;
-	Aktualisieren then had nothing to act on."
+	right there in the Dependent-projects table as stale -- has a stale pin to apptivescript;
+	Update then had nothing to act on."
 	| refs |
 	refs := (graph allReferences select: [ :r |
 		r isStale and: [ (names includes: r ownerProjectName) or: [ names includes: r targetProject name ] ] ])
@@ -363,7 +363,7 @@ GftPresenter >> reloadProjects [
 
 { #category : 'actions' }
 GftPresenter >> selectAllView [
-	"Sidebar ◆ Alle: clears the persisted Custom selection so every image project shows again."
+	"Sidebar ◆ All: clears the persisted Custom selection so every image project shows again."
 	GftProject clearSelection.
 	self reloadProjects
 ]
@@ -378,29 +378,29 @@ GftPresenter >> shorten: aStringOrNil [
 { #category : 'actions' }
 GftPresenter >> showBumpPlanForSelectedProject [
 	| newCommit plan stream |
-	selectedProject ifNil: [ ^ self inform: 'Bitte zuerst ein Projekt anklicken (Graph oder Sidebar).' ].
+	selectedProject ifNil: [ ^ self inform: 'Please click a project first (graph or sidebar).' ].
 	newCommit := GftVersionResolver latestCommitFor: selectedProject ifUnknown: [ nil ].
-	newCommit ifNil: [ ^ self inform: 'Kein bekannter aktueller Commit für ', selectedProject name, ' -- erst Refresh drücken.' ].
+	newCommit ifNil: [ ^ self inform: 'No known current commit for ', selectedProject name, ' -- try Refresh first.' ].
 	plan := GftBumpPlan for: selectedProject name newCommit: newCommit usingGraph: graph.
 	stream := String new writeStream.
 	plan isEmpty
-		ifTrue: [ stream nextPutAll: 'Keine BaselineOf müsste angepasst werden -- niemand referenziert ', selectedProject name, ' commit-gepinnt.' ]
+		ifTrue: [ stream nextPutAll: 'No BaselineOf would need adjusting -- nobody references ', selectedProject name, ' via a commit pin.' ]
 		ifFalse: [
-			stream nextPutAll: 'Bump-Plan für ', selectedProject name, ' -> ', newCommit; cr; cr.
+			stream nextPutAll: 'Bump plan for ', selectedProject name, ' -> ', newCommit; cr; cr.
 			plan concreteSteps do: [ :step |
 				stream nextPutAll: (GftBaselineRewriter previewFor: step) diffText; cr; cr ].
 			plan pendingSteps isEmpty ifFalse: [
-				stream nextPutAll: '--- weitere Kaskade (erst nach Anwendung der obigen Schritte konkret berechenbar) ---'; cr.
+				stream nextPutAll: '--- further cascade (only computable once the steps above have been applied) ---'; cr.
 				plan pendingSteps do: [ :step | stream nextPutAll: step printString; cr ] ].
 			plan floatingDependents isEmpty ifFalse: [
-				stream nextPutAll: '--- floatet automatisch, keine Änderung nötig ---'; cr.
+				stream nextPutAll: '--- floats automatically, no change needed ---'; cr.
 				plan floatingDependents do: [ :ref | stream nextPutAll: ref printString; cr ] ] ].
 	planText text: stream contents
 ]
 
 { #category : 'actions' }
 GftPresenter >> showProject: aProject [
-	"Populates the detail/dependents (browsing) tables AND scopes the 'Ausgewählte Pins'
+	"Populates the detail/dependents (browsing) tables AND scopes the 'Selected pins'
 	action table down to just this one projects stale references -- used both by clicking a
 	node in the graph and by clicking an individual project row in the sidebar. Does not change
 	which projects are drawn in the graph (see #selectAllView/#applyCustomSelection: for that),
@@ -425,8 +425,8 @@ GftPresenter >> updateSelectedLabel [
 	"Reflects the current scope in the header label: either the persisted Custom selection size or,
 	when no selection is set, the full image-project count (see GftProject managedProjects)."
 	selectedLabel label: (GftProject hasSelection
-		ifTrue: [ 'Auswahl: ', GftProject managedProjects size printString, ' Projekte' ]
-		ifFalse: [ 'Alle Projekte im Image (', GftProject imageProjects size printString, ')' ])
+		ifTrue: [ 'Selection: ', GftProject managedProjects size printString, ' projects' ]
+		ifFalse: [ 'All projects in the image (', GftProject imageProjects size printString, ')' ])
 ]
 
 { #category : 'accessing' }

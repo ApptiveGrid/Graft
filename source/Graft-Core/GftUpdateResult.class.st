@@ -79,20 +79,20 @@ GftUpdateResult >> summary [
 	stream := String new writeStream.
 	stream nextPutAll: projectName.
 	self isBlocked ifTrue: [
-		stream nextPutAll: ': blockiert'; cr.
+		stream nextPutAll: ': blocked'; cr.
 		blockers do: [ :b | stream nextPutAll: '  - ', b; cr ].
 		^ stream contents ].
 	self didNothing ifTrue: [
-		stream nextPutAll: ': nichts zu tun (keine veralteten Pins)'.
+		stream nextPutAll: ': nothing to do (no stale pins)'.
 		^ stream contents ].
 	applied isEmpty
-		ifTrue: [ stream nextPutAll: ': keine Änderung angewendet'; cr ]
+		ifTrue: [ stream nextPutAll: ': no change applied'; cr ]
 		ifFalse: [
 			commitId
-				ifNotNil: [ stream nextPutAll: ': committet (', commitId, ')'; cr ]
-				ifNil: [ stream nextPutAll: ': Code geändert, NICHT committet (Repository jetzt modifiziert -- selbst committen)'; cr ] ].
+				ifNotNil: [ stream nextPutAll: ': committed (', commitId, ')'; cr ]
+				ifNil: [ stream nextPutAll: ': code changed, NOT committed (repository now modified -- commit it yourself)'; cr ] ].
 	applied do: [ :a | stream nextPutAll: '  - ', a key, ' -> ', a value; cr ].
-	skipped do: [ :s | stream nextPutAll: '  - ', s key, ': übersprungen (', s value, ')'; cr ].
+	skipped do: [ :s | stream nextPutAll: '  - ', s key, ': skipped (', s value, ')'; cr ].
 	^ stream contents
 ]
 

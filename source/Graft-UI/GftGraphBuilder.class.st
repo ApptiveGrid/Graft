@@ -16,11 +16,11 @@ GftGraphBuilder class >> addContextMenuTo: composite project: proj graph: aGraph
 			| staleDeps |
 			staleDeps := aGraph staleDependentsOf: proj name.
 			staleDeps isEmpty
-				ifTrue: [ menu add: 'Keine veralteten Abhängigen' target: self selector: #yourself ]
+				ifTrue: [ menu add: 'No stale dependents' target: self selector: #yourself ]
 				ifFalse: [
 					staleDeps do: [ :ref |
 						menu
-							add: 'Diff: ', ref ownerProjectName, ' hinkt hinterher (', (ref url ref), ' -> aktuell)'
+							add: 'Diff: ', ref ownerProjectName, ' is behind (', (ref url ref), ' -> current)'
 							target: self
 							selector: #showDiffForReference:
 							argument: ref ] ] ])
@@ -173,7 +173,7 @@ GftGraphBuilder class >> showDiffForReference: aReference [
 	| newRef |
 	newRef := GftVersionResolver effectiveTipFor: aReference targetProject.
 	newRef ifNil: [
-		^ UIManager default inform: 'Kein bekannter aktueller Commit für ', aReference targetProject name, ' -- erst Refresh drücken.' ].
+		^ UIManager default inform: 'No known current commit for ', aReference targetProject name, ' -- try Refresh first.' ].
 	GftDiffPresenter
 		openForProject: aReference targetProject
 		oldRef: aReference url ref
