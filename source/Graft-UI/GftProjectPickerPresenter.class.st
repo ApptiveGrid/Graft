@@ -45,18 +45,18 @@ GftProjectPickerPresenter >> defaultLayout [
 	body := SpBoxLayout newLeftToRight
 		spacing: 6;
 		add: (SpBoxLayout newTopToBottom spacing: 4;
-			add: 'Verfügbar' expand: false;
+			add: 'Available' expand: false;
 			add: availableList expand: true;
 			yourself);
 		add: middle expand: false;
 		add: (SpBoxLayout newTopToBottom spacing: 4;
-			add: 'Angezeigt (Sidebar)' expand: false;
+			add: 'Shown (sidebar)' expand: false;
 			add: selectedList expand: true;
 			yourself);
 		yourself.
 	^ SpBoxLayout newTopToBottom
 		spacing: 6; borderWidth: 6;
-		add: 'Projekte per > / < verschieben (Mehrfachauswahl und Doppelklick moeglich):' expand: false;
+		add: 'Move projects with > / < (multi-select and double-click both work):' expand: false;
 		add: body expand: true;
 		add: okButton expand: false;
 		yourself
@@ -79,7 +79,7 @@ GftProjectPickerPresenter >> initializePresenters [
 	removeAllButton := self newButton.
 	removeAllButton label: '<<'.
 	okButton := self newButton.
-	okButton label: 'Übernehmen'.
+	okButton label: 'Apply'.
 	self initiallySelected: #()
 ]
 
@@ -92,8 +92,8 @@ GftProjectPickerPresenter >> initializeWindow: aWindowPresenter [
 
 { #category : 'accessing' }
 GftProjectPickerPresenter >> initiallySelected: aCollectionOfProjectNames [
-	"aCollectionOfProjectNames end up on the right (Angezeigt) list, the rest of the image
-	projects on the left (Verfügbar). Called before #open, after #initializePresenters created
+	"aCollectionOfProjectNames end up on the right (Shown) list, the rest of the image
+	projects on the left (Available). Called before #open, after #initializePresenters created
 	the lists."
 	| all names |
 	initiallySelected := aCollectionOfProjectNames.
@@ -146,5 +146,5 @@ GftProjectPickerPresenter >> sortedProjects: aCollection [
 
 { #category : 'accessing' }
 GftProjectPickerPresenter >> windowTitle [
-	^ 'Graft -- Projektauswahl'
+	^ 'Graft -- Project Selection'
 ]

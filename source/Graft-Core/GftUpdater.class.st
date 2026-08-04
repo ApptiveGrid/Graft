@@ -33,13 +33,13 @@ GftUpdater class >> blockersForUpdating: aProject ignoringUnrelatedChanges: shou
 	| repo blockers otherModifiedPackages |
 	blockers := OrderedCollection new.
 	repo := aProject iceRepository.
-	repo ifNil: [ blockers add: 'Kein Iceberg-Repository registriert.'. ^ blockers ].
+	repo ifNil: [ blockers add: 'No Iceberg repository registered.'. ^ blockers ].
 	shouldIgnore ifFalse: [
 		otherModifiedPackages := self unrelatedModifiedPackagesFor: aProject.
 		otherModifiedPackages isEmpty ifFalse: [
-			blockers add: 'Repository hat bereits unabhängige, nicht committete Änderungen in: ',
+			blockers add: 'Repository already has unrelated, uncommitted changes in: ',
 				((otherModifiedPackages collect: [ :p | p name ]) fold: [ :a :b | a, ', ', b ]),
-				' -- Graft fasst das nicht an.' ] ].
+				' -- Graft leaves those alone.' ] ].
 	^ blockers
 ]
 
@@ -58,10 +58,10 @@ GftUpdater class >> commitMessageFor: aProject applied: appliedAssocs [
 GftUpdater class >> currentBranchDescriptionFor: aProject [
 	| repo |
 	repo := aProject iceRepository.
-	repo ifNil: [ ^ '(kein Repository)' ].
+	repo ifNil: [ ^ '(no repository)' ].
 	^ repo head isBranch
 		ifTrue: [ repo branchName ]
-		ifFalse: [ 'losgelöst (detached HEAD)' ]
+		ifFalse: [ 'detached HEAD' ]
 ]
 
 { #category : 'safety' }

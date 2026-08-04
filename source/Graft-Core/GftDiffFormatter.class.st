@@ -77,20 +77,20 @@ GftDiffFormatter class >> textDiffFor: aProject oldRef: oldRef newRef: newRef [
 	be resolved in the local repository (e.g. an old ref that was force-pushed away)."
 	| repo oldCommit newCommit diff lines |
 	repo := aProject iceRepository.
-	repo ifNil: [ ^ 'Kein Iceberg-Repository für ', aProject name, '.' ].
+	repo ifNil: [ ^ 'No Iceberg repository for ', aProject name, '.' ].
 	oldCommit := [ repo lookupCommit: oldRef ] on: Error do: [ :e | nil ].
 	newCommit := [ repo lookupCommit: newRef ] on: Error do: [ :e | nil ].
 	(oldCommit isNil or: [ oldCommit isUnknownCommit ]) ifTrue: [
-		^ 'Alter Commit ', oldRef, ' ist lokal nicht bekannt -- ggf. erst Refresh drücken.' ].
+		^ 'Old commit ', oldRef, ' is not known locally -- try Refresh first.' ].
 	(newCommit isNil or: [ newCommit isUnknownCommit ]) ifTrue: [
-		^ 'Neuer Commit ', newRef, ' ist lokal nicht bekannt -- ggf. erst Refresh drücken.' ].
+		^ 'New commit ', newRef, ' is not known locally -- try Refresh first.' ].
 	diff := IceDiff from: oldCommit to: newCommit.
-	diff isEmpty ifTrue: [ ^ 'Kein Unterschied zwischen ', oldRef, ' und ', newRef, '.' ].
+	diff isEmpty ifTrue: [ ^ 'No difference between ', oldRef, ' and ', newRef, '.' ].
 	lines := OrderedCollection new.
 	self collectChangeLines: diff tree into: lines.
-	lines isEmpty ifTrue: [ ^ 'Unterschied gefunden, aber keine einzelnen Änderungen extrahierbar (', oldRef, '..', newRef, ').' ].
+	lines isEmpty ifTrue: [ ^ 'Difference found, but no individual changes could be extracted (', oldRef, '..', newRef, ').' ].
 	^ (OrderedCollection new
-		add: 'Änderungen in ', aProject name, ' zwischen ', oldRef, ' und ', newRef, ':';
+		add: 'Changes in ', aProject name, ' between ', oldRef, ' and ', newRef, ':';
 		addAll: lines;
 		yourself) fold: [ :a :b | a, (String with: Character cr), b ]
 ]

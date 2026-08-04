@@ -28,7 +28,7 @@ GftDiffFormatterTest >> testTextDiffForIdenticalRefsReportsNoDifference [
 		textDiffFor: (GftProject named: 'Soil')
 		oldRef: '5a4cbf89f4bea0628c6e6be78a726156a56b4f33'
 		newRef: '5a4cbf89f4bea0628c6e6be78a726156a56b4f33'.
-	self assert: (text includesSubstring: 'Kein Unterschied')
+	self assert: (text includesSubstring: 'No difference')
 ]
 
 { #category : 'tests' }

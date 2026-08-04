@@ -42,7 +42,7 @@ GftDiffPresenter >> defaultLayout [
 		positionOfSlider: 25 percent;
 		add: (SpBoxLayout newTopToBottom
 			spacing: 4; borderWidth: 4;
-			add: 'Änderungen' expand: false;
+			add: 'Changes' expand: false;
 			add: changesList expand: true;
 			yourself);
 		add: diffView;

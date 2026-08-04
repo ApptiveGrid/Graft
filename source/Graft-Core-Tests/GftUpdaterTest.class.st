@@ -18,7 +18,7 @@ GftUpdaterTest >> testBlockersDoNotFlagOwnBaselinePackageBeingModified [
 			otherDirty := repo modifiedPackages reject: [ :pkg | pkg name = p baselineClassName ].
 			otherDirty isEmpty ifTrue: [
 				blockers := GftUpdater blockersForUpdating: p.
-				blockers do: [ :b | self deny: (b includesSubstring: 'unabhängige') ] ] ] ]
+				blockers do: [ :b | self deny: (b includesSubstring: 'unrelated') ] ] ] ]
 ]
 
 { #category : 'tests' }
@@ -44,8 +44,8 @@ GftUpdaterTest >> testBlockersIgnoringUnrelatedChangesSuppressesThatBlocker [
 		detect: [ :p | (GftUpdater unrelatedModifiedPackagesFor: p) isNotEmpty ]
 		ifNone: [ nil ].
 	dirtyProject ifNotNil: [
-		self assert: ((GftUpdater blockersForUpdating: dirtyProject) anySatisfy: [ :b | b includesSubstring: 'unabhängige' ]).
-		self deny: ((GftUpdater blockersForUpdating: dirtyProject ignoringUnrelatedChanges: true) anySatisfy: [ :b | b includesSubstring: 'unabhängige' ]) ]
+		self assert: ((GftUpdater blockersForUpdating: dirtyProject) anySatisfy: [ :b | b includesSubstring: 'unrelated' ]).
+		self deny: ((GftUpdater blockersForUpdating: dirtyProject ignoringUnrelatedChanges: true) anySatisfy: [ :b | b includesSubstring: 'unrelated' ]) ]
 ]
 
 { #category : 'tests' }
@@ -54,7 +54,7 @@ GftUpdaterTest >> testCurrentBranchDescriptionForDetachedHead [
 		| repo |
 		repo := p iceRepository.
 		(repo notNil and: [ repo head isBranch not ]) ifTrue: [
-			self assert: (GftUpdater currentBranchDescriptionFor: p) equals: 'losgelöst (detached HEAD)' ] ]
+			self assert: (GftUpdater currentBranchDescriptionFor: p) equals: 'detached HEAD' ] ]
 ]
 
 { #category : 'tests' }
@@ -78,11 +78,11 @@ GftUpdaterTest >> testSummaryDistinguishesChangedFromCommitted [
 	| committedResult changedOnlyResult |
 	committedResult := GftUpdateResult projectName: 'x' blockers: #() applied: { 'Y' -> 'abc' } skipped: #() commitId: 'deadbeef'.
 	self assert: committedResult wasCommitted.
-	self assert: (committedResult summary includesSubstring: 'committet').
+	self assert: (committedResult summary includesSubstring: 'committed').
 	changedOnlyResult := GftUpdateResult projectName: 'x' blockers: #() applied: { 'Y' -> 'abc' } skipped: #() commitId: nil.
 	self deny: changedOnlyResult wasCommitted.
 	self assert: changedOnlyResult wasChangedButNotCommitted.
-	self assert: (changedOnlyResult summary includesSubstring: 'NICHT committet')
+	self assert: (changedOnlyResult summary includesSubstring: 'NOT committed')
 ]
 
 { #category : 'tests' }
